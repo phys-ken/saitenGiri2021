@@ -431,6 +431,10 @@ def saitenSelect():
     selectQ.mainloop
 
 
+def siwake():
+    pass
+
+
 def top_activate():
 
     val = 0.4

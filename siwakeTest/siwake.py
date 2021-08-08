@@ -17,7 +17,7 @@ def load_file(event):
 
     # ファイルを読み込み
     tex_var.set("ファイルを読み込んでいます...")
-    dir_name = file_selector(dir_select=True)
+    dir_name = "../setting/output/Q_0007"
     if not dir_name == None:
         file_list = folder_walker(dir_name)
 
@@ -131,10 +131,10 @@ def image_show(event):
 # 画像に対しラベリング - - - - - - - - - - - - - - - - - - - - - - - -
 def file_assort(event):
 
-    if str(event.keysym) in ["1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+    if str(event.keysym) in ["0","1", "2", "3", "4", "5", "6", "7", "8", "9"]:
         assort_dict[filename_lst[img_num]] = str(event.keysym)
-    elif str(event.keysym) == "0":
-        del assort_dict[filename_lst[img_num]]
+    else:
+        assort_dict[filename_lst[img_num]] = str("skip")
 
     # ラベリングを表示
     if filename_lst[img_num] in assort_dict:
@@ -162,9 +162,7 @@ def assort_go(event):
             os.mkdir(new_dir)
         # ファイルの移動実行
         shutil.move(f, new_path)
-        # 各種ボタンの表示・非表示
         assort_btn.pack_forget()
-        open_folder_btn.pack()
 
         print(new_path)
 
