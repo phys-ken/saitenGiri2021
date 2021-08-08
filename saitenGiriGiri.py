@@ -117,7 +117,7 @@ def release_action(event):
         ]
         with open('setting/ini.csv', 'a') as f:
             writer = csv.writer(f, lineterminator='\n')  # 行末は改行
-            writer.writerow(["Q_" + str(qCnt), start_x, start_y, end_x, end_y])
+            writer.writerow(["Q_" + str(qCnt).zfill(4), start_x, start_y, end_x, end_y])
 
     qCnt = qCnt + 1
 
@@ -250,7 +250,7 @@ if __name__ == "__main__":
 
     # Canvasウィジェットを配置し、各種イベントを設定
     canvas1.pack()
-    
+
     # 戻るボタン
     backB = tkinter.Button(
         button_frame, text='一つ戻る', command=back_one).pack()
