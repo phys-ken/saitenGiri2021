@@ -11,6 +11,9 @@ global canvas1
 global img_resized
 global img_tk
 global Giri_cutter
+global root
+global topimg
+global topfig
 
 global RESIZE_RETIO  # 縮小倍率の規定
 window_h = 700
@@ -251,7 +254,6 @@ def GiriActivate():
     img_resized = img.resize(size=(int(img.width / RESIZE_RETIO),
                                    int(img.height / RESIZE_RETIO)),
                              resample=Image.BILINEAR)
-    print(RESIZE_RETIO)
 
     Giri_cutter = tkinter.Tk()
     Giri_cutter.geometry(str(window_w) + "x" + str(window_h))
@@ -271,7 +273,8 @@ def GiriActivate():
     canvas1 = tkinter.Canvas(canvas_frame,
                              bg="black",
                              width=img_resized.width,
-                             height=img_resized.height)
+                             height=img_resized.height,
+                             highlightthickness=0)
     # Canvasウィジェットに取得した画像を描画
     canvas1.create_image(0, 0, image=img_tk, anchor=tkinter.NW)
 
@@ -280,13 +283,13 @@ def GiriActivate():
 
     # 戻るボタン
     backB = tkinter.Button(
-        button_frame, text='一つ元に戻る\n', command=back_one).pack()
+        button_frame, text='一つ前に戻る', command=back_one , width = 10 ,height = 4).pack()
 
     # 入力完了
     finB = tkinter.Button(
-        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin).pack()
+        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin , width = 10 ,height = 4).pack()
     topB = tkinter.Button(
-        button_frame, text='topに戻る\n(保存はされません)', command=toTop).pack()
+        button_frame, text='topに戻る\n(保存はされません)', command=toTop , width = 10 ,height = 4).pack()
 
     canvas1.bind("<ButtonPress-1>", start_point_get)
     canvas1.bind("<Button1-Motion>", rect_drawing)
@@ -379,23 +382,100 @@ def exitGiri():
   sys.exit()
 
 
+def info():
+    pass
+
+
+
+def saitenSelect():
+    def show_selection():
+        for i in lb.curselection():
+            print(lb.get(i))
+            messagebox.showinfo("採点へ",str(lb.get(i) )+ "を採点します。")
+            selectQ.destroy()
+            
+
+    def backTop():
+        selectQ.destroy()
+
+
+    selectQ = tkinter.Tk()
+    selectQ.geometry("500x500")
+    selectQ.title("採点する問題を選ぶ")
+
+
+
+    #outputの中のフォルダを取得
+    path = "./setting/output/"
+    files = os.listdir(path)
+    files_dir = [f for f in files if os.path.isdir(os.path.join(path, f))]
+    files_dir.sort()
+    lb = tkinter.Listbox(selectQ,selectmode='single', height=20 , width =20 )
+    for i in files_dir:
+        lb.insert(tkinter.END , i)
+
+    lb.grid(row=0, column=0)
+    button_frame = tkinter.Frame(selectQ)
+    button_frame.grid(row = 0,column=1)
+
+    button1 = tkinter.Button(
+        button_frame, text='OK', width = 15 ,height = 3 , 
+        command=lambda: show_selection()).pack()
+
+
+    totopB = tkinter.Button(
+        button_frame, text='Topに戻る',width = 15 ,height = 3,
+        command=backTop).pack()
+
+
+    selectQ.mainloop
 
 
 def top_activate():
+
+    val = 0.4
+    fifwid = 500
+    fifhet = 400
+    global root
+    global topimg
+    global topfig
+
     global top_frame
-    top_frame = tkinter.Frame(root)
+    top_frame = tkinter.Frame(root , bg = "white")
     top_frame.pack()
+    fig_frame = tkinter.Frame(top_frame ,width=fifwid,height=fifhet)
+    fig_frame.grid(column=0,row=0)
+
+    topimg = Image.open("./appfigs/top.png")
+    topimg = topimg.resize((int(topimg.width * val) , int(topimg.height * val )), 0)
+    topfig = ImageTk.PhotoImage(topimg , master = root)
+    canvas_top = tkinter.Canvas(bg = "white" , master = fig_frame ,width=fifwid + 30,height=fifhet , highlightthickness=0)
+    canvas_top.place(x=0,y=0)
+    canvas_top.create_image(0,0,image=topfig,anchor = tkinter.NW)
+    canvas_top.pack()
+
+    button_frame = tkinter.Frame(top_frame ,bg="white" , highlightthickness=0)
+    button_frame.grid(column=1,row=0)
+
+    infoB = tkinter.Button(
+        button_frame, text="はじめに", command=info,width = 15 ,height = 3 , highlightthickness=0).pack()
+
+
     initB = tkinter.Button(
-        top_frame, text="初期設定をする", command=setting_ck,width = 10).pack()
+        button_frame, text="初期設定をする", command=setting_ck,width = 15 ,height = 3 , highlightthickness=0).pack()
 
     GiriGoB = tkinter.Button(
-        top_frame, text="どこを斬るか決める", command=input_ck).pack()
+        button_frame, text="どこを斬るか決める", command=input_ck, width = 15 ,height = 3 , highlightthickness=0).pack()
 
     initB = tkinter.Button(
-        top_frame, text="全員の解答用紙を斬る", command=trimck).pack()
+        button_frame, text="全員の解答用紙を斬る", command=trimck, width = 15 ,height = 3 , highlightthickness=0).pack()
+
+    saitenB = tkinter.Button(
+        button_frame, text="斬った画像を採点する", command=saitenSelect, width = 15 ,height = 3 , highlightthickness=0).pack()
+
 
     exitB = tkinter.Button(
-        top_frame, text="アプリを閉じる", command=exitGiri).pack()
+        button_frame, text="アプリを閉じる", command=exitGiri, width = 15 ,height = 3 , highlightthickness=0).pack()
 
 
 
@@ -405,7 +485,8 @@ if __name__ == "__main__":
     # 画面処理
     root = tkinter.Tk()
     root.title("採点ギリギリ")
-    root.geometry("300x300")
+    root.geometry("800x400")
+    root.configure(bg='white')
 
     top_activate()
 
