@@ -1,5 +1,4 @@
 ##　自分メモ
-# Q_000nより深い階層に潜り込まないようにする。
 # saitenGiriGiriからフォルダ名を受けて、表示する
 # Enter 押したら次にする
 # siwakeを実行した後に画面を閉じる。
@@ -10,26 +9,48 @@
 
 
 
-from file_walker import folder_walker  # 自作関数
-from folder_selector import file_selector  # 自作関数
-
+import pathlib
 import os
 import shutil
-import subprocess
-import tkinter as tk
+
+import tkinter
 from tkinter import Label, Tk, StringVar
 
 from PIL import Image, ImageTk  # 外部ライブラリ
 
 
+
+def folder_walker(folder_path, recursive = False, file_ext = ".*"):
+    """
+    指定されたフォルダのファイル一覧を取得する。
+    引数を指定することで再帰的にも、非再帰的にも取得可能。
+
+    Parameters
+    ----------
+    folder_path : str
+        対象のフォルダパス
+    recursive : bool
+        再帰的に取得するか否か。既定値はTrueで再帰的に取得する。
+    file_ext : str
+        読み込むファイルの拡張子を指定。例：".jpg"のようにピリオドが必要。既定値は".*"で指定なし
+    """
+
+    p = pathlib.Path(folder_path)
+
+    if recursive:
+        return list(p.glob("**/*" + file_ext))  # **/*で再帰的にファイルを取得
+    else:
+        return list(p.glob("*" + file_ext))  # 再帰的にファイル取得しない
+
+
 # ファイル読み込み - - - - - - - - - - - - - - - - - - - - - - - -
-def load_file(event):
+def load_file(Qnum):
 
     global img_num, item, dir_name
 
     # ファイルを読み込み
     tex_var.set("ファイルを読み込んでいます...")
-    dir_name = "../setting/output/Q_0007"
+    dir_name = "../setting/output/" + Qnum
     if not dir_name == None:
         file_list = folder_walker(dir_name)
 
@@ -40,9 +61,12 @@ def load_file(event):
             filename_lst.append(f)
         except:
             pass
+    
+    if not img_lst:
+            tex_var.set("読み込む画像がありません。\n採点は終了しています。")
 
     # ウィンドウサイズに合わせてキャンバスサイズを再定義
-    window_resize()
+    # window_resize()
 
     # 画像変換
     for f in img_lst:
@@ -61,12 +85,11 @@ def load_file(event):
     # キャンバスに表示
     img_num = 0
     item = image_canvas.create_image(
-        c_width_half, c_height_half,  image=tk_img_lst[0], anchor=tk.CENTER)
+        c_width_half, c_height_half,  image=tk_img_lst[0], anchor=tkinter.CENTER)
     # ラベルの書き換え
     tex_var.set(filename_lst[img_num])
 
-    # 読み込みボタンの非表示
-    load_btn.pack_forget()
+ 
     # 仕分け実行ボタンの配置
     assort_btn.pack()
 
@@ -164,36 +187,41 @@ def assort_go(event):
 
     for f in assort_dict:
         # 仕分け前後のファイル名・フォルダ名を取得
-        f_dir = os.path.dirname(f)
-        f_basename = os.path.basename(f)
-        new_dir = os.path.join(f_dir, assort_dict[f])
-        new_path = os.path.join(new_dir, f_basename)
+        # skipは、無視する。
+        print(assort_dict[f])
+        if not assort_dict[f] == "skip":
+            f_dir = os.path.dirname(f)
+            f_basename = os.path.basename(f)
+            new_dir = os.path.join(f_dir, assort_dict[f])
+            new_path = os.path.join(new_dir, f_basename)
 
-        # ディレクトリの存在チェック
-        if not os.path.exists(new_dir):
-            os.mkdir(new_dir)
-        # ファイルの移動実行
-        shutil.move(f, new_path)
-        assort_btn.pack_forget()
+            # ディレクトリの存在チェック
+            if not os.path.exists(new_dir):
+                os.mkdir(new_dir)
+            # ファイルの移動実行
+            shutil.move(f, new_path)
 
-        print(new_path)
+            print(new_path)
+        else:
+            pass
+    siwake_win.destroy()
 
-# フォルダーを開く - - - - - - - - - - - - - - - - - - - - - - - -
-def folder_open(event):
-    # パスをエクスプローラーで開けるように変換
-    open_dir_name = f_dir.replace("/", "\\")
-    # エクスプローラーで開く
-    subprocess.Popen(['explorer', open_dir_name])
-    # tkinterウィンドウを閉じる
-    root.destroy()
-
-    print(open_dir_name)
-
-
-# メイン処理 -------------------------------------------------------
-if __name__ == "__main__":
-
+def siwakeApp():
     # グローバル変数
+    global img_lst, tk_img_lst 
+    global filename_lst
+    global assort_file_list
+    global assort_dict
+
+    global tex_var
+    global image_canvas
+    global assort_btn
+    global assort_t_var
+
+    global img_num
+    global f_basename
+    global siwake_win
+
     img_lst, tk_img_lst = [], []
     filename_lst = []
     assort_file_list = []
@@ -202,53 +230,68 @@ if __name__ == "__main__":
     img_num = 0
     f_basename = ""
 
-    # tkinter描画設定
-    root = tk.Tk()
-
-    root.title(u"表示・仕分けツール")
-    root.option_add("*font", ("Meiryo UI", 11))
-
-    # 読み込みボタン描画設定
-    load_btn = tk.Button(root, text="読み込み")
-    load_btn.bind("<Button-1>", load_file)
-    load_btn.pack()
+    siwake_win = tkinter.Tk()
+    siwake_win.title("採点中...")
+    siwake_win.geometry("800x800")
+    siwake_frame = tkinter.Frame(siwake_win)
+    siwake_frame.grid(column=0,row=0)
 
     # キャンバス描画設定
-    image_canvas = tk.Canvas(root,
+    image_canvas = tkinter.Canvas(siwake_frame,
                              width=640,
                              height=480)
 
     image_canvas.pack(expand=True, fill="both")
 
     # 仕分け結果表示
-    assort_t_var = tk.StringVar()
-    assort_label = tk.Label(
-        root, textvariable=assort_t_var, font=("Meiryo UI", 14))
+    assort_t_var = tkinter.StringVar(siwake_frame)
+    assort_label = tkinter.Label(
+        siwake_frame, textvariable=assort_t_var, font=("Meiryo UI", 30))
     assort_label.pack()
 
     # ファイル名ラベル描画設定
-    tex_var = tk.StringVar()
+    tex_var = tkinter.StringVar(siwake_frame)
     tex_var.set("ファイル名")
 
-    lbl = tk.Label(root, textvariable=tex_var, font=("Meiryo UI", 8))
+    lbl = tkinter.Label(siwake_frame, textvariable=tex_var, font=("Meiryo UI", 10))
     lbl["foreground"] = "gray"
     lbl.pack()
 
     # 右左キーで画像送りする動作設定
-    root.bind("<Key-Right>", next_img)
-    root.bind("<Key-Left>", prev_img)
+    siwake_win.bind("<Key-Right>", next_img)
+    siwake_win.bind("<Key-Left>", prev_img)
     # 「Ctrl」+「P」で画像表示
-    root.bind("<Control-Key-p>", image_show)
+    siwake_win.bind("<Control-Key-p>", image_show)
 
     # 数字キーで仕分け対象設定
-    root.bind("<Key>", file_assort)
+    siwake_win.bind("<Key>", file_assort)
 
     # 仕分け実行ボタン
-    assort_btn = tk.Button(root, text="仕分け実行")
+    assort_btn = tkinter.Button(siwake_frame, text="仕分け実行")
     assort_btn.bind("<Button-1>", assort_go)
 
-    # フォルダを開くボタン
-    open_folder_btn = tk.Button(root,text="フォルダーを開く")
-    open_folder_btn.bind("<Button-1>", folder_open)
+
+    # 読み込みボタン描画設定
+    load_file("Q_0002")
+
+    siwake_win.mainloop
+
+# メイン処理 -------------------------------------------------------
+if __name__ == "__main__":
+
+
+
+    # tkinter描画設定
+    root = tkinter.Tk()
+
+    root.title(u"表示・仕分けツール")
+    root.option_add("*font", ("Meiryo UI", 11))
+    root.geometry("200x200")
+
+    # 仕分け実行ボタン
+    siwake_btn = tkinter.Button(root, text="仕分け実行" , command= siwakeApp).pack()
+    
+    
+
 
     root.mainloop()
