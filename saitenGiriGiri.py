@@ -7,6 +7,11 @@ import os
 import sys
 import shutil
 
+global canvas1
+global img_resized
+global img_tk
+global Giri_cutter
+
 global RESIZE_RETIO  # 縮小倍率の規定
 window_h = 700
 window_w = int(window_h * 1.7)
@@ -77,12 +82,14 @@ def release_action(event):
 
     if qCnt == 0:
         pos = canvas1.bbox("rectTmp")
+
         # canvas1上に四角形を描画（rectangleは矩形の意味）
         create_rectangle_alpha(pos[0], pos[1], pos[2], pos[3],
                                fill="green",
                                alpha=0.3,
                                tag="nameBox"
                                )
+
         canvas1.create_text(
             (pos[0] + pos[2]) / 2, (pos[1] + pos[3]) / 2,
             text="name",
@@ -117,7 +124,8 @@ def release_action(event):
         ]
         with open('setting/ini.csv', 'a') as f:
             writer = csv.writer(f, lineterminator='\n')  # 行末は改行
-            writer.writerow(["Q_" + str(qCnt).zfill(4), start_x, start_y, end_x, end_y])
+            writer.writerow(["Q_" + str(qCnt).zfill(4),
+                            start_x, start_y, end_x, end_y])
 
     qCnt = qCnt + 1
 
@@ -132,9 +140,9 @@ def create_rectangle_alpha(x1, y1, x2, y2, **kwargs):
     if 'alpha' in kwargs:
         alpha = int(kwargs.pop('alpha') * 255)
         fill = kwargs.pop('fill')
-        fill = root.winfo_rgb(fill) + (alpha,)
+        fill = Giri_cutter.winfo_rgb(fill) + (alpha,)
         image = Image.new('RGBA', (x2-x1, y2-y1), fill)
-        images.append(ImageTk.PhotoImage(image))
+        images.append(ImageTk.PhotoImage(image, master=Giri_cutter))
         canvas1.create_image(x1, y1, image=images[-1], anchor='nw')
     canvas1.create_rectangle(x1, y1, x2, y2, **kwargs)
 
@@ -161,19 +169,17 @@ def back_one():
 
 
 def trim_fin():
+    global Giri_cutter
     ret = messagebox.askyesno('終了します', '現在のデータを保存し、ウィンドウを閉じますか？')
     if ret == True:
         cur = os.getcwd()
         beforePath = cur + "/setting/ini.csv"
         afterPath = cur + "/setting/trimData.csv"
         shutil.move(beforePath, afterPath)
-        sys.exit()
+        Giri_cutter.destroy()
 
 
-# メイン処理 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if __name__ == "__main__":
-
-    # 同じ場所にsettingがあるか調べる。無ければ、作るかどうか聞く。
+def setting_ck():
     if not os.path.exists("./setting/"):
         ret = messagebox.askyesno(
             '初回起動です', '採点のために、いくつかのフォルダーをこのファイルと同じ場所に作成します。よろしいですか？')
@@ -181,19 +187,40 @@ if __name__ == "__main__":
             initDir()
             messagebox.showinfo(
                 '準備ができました。', '解答用紙を、setting/input の中に保存してください。jpeg または png に対応しています。')
-            sys.exit()
         else:
             # メッセージボックス（情報）
-            messagebox.showinfo('終了', 'アプリを終了します。')
-            sys.exit()
+            messagebox.showinfo('終了', 'フォルダは作成しません。')
+    else:
+        messagebox.showinfo('確認', '初期設定は完了しています。解答用紙を、setting/inputに入れてから、解答用紙分割をしてください。')
 
+
+def input_ck():
     # 表示する画像の取得
     files = get_sorted_files(os.getcwd() + "/setting/input/*")
     if not files:
         # メッセージボックス（警告）
         messagebox.showerror(
             "エラー", "setting/inputの中に、解答用紙のデータが存在しません。画像を入れてから、また開いてね。")
-        sys.exit()
+    else:
+      GiriActivate()
+
+def GiriActivate():
+    global RESIZE_RETIO
+    global img_resized
+    global canvas1
+    global img_tk
+    global Giri_cutter
+
+    def toTop():
+        ret = messagebox.askyesno('保存しません', '作業中のデータは保存されません。途中で保存はできないんです...')
+        if ret == True:
+          Giri_cutter.destroy()
+        else:
+          pass
+
+    # 表示する画像の取得
+    files = get_sorted_files(os.getcwd() + "/setting/input/*")
+    print(files)
 
     # ini.csvは、起動のたびに初期化する。
     f = open('setting/ini.csv', 'w')  # 既存でないファイル名を作成してください
@@ -221,24 +248,21 @@ if __name__ == "__main__":
     img_resized = img.resize(size=(int(img.width / RESIZE_RETIO),
                                    int(img.height / RESIZE_RETIO)),
                              resample=Image.BILINEAR)
+    print(RESIZE_RETIO)
 
+    Giri_cutter = tkinter.Tk()
+    Giri_cutter.geometry(str(window_w) + "x" + str(window_h))
+    Giri_cutter.title("解答用紙を斬る")
 
-
-
-#画面処理
-    root = tkinter.Tk()
-    root.title("採点ギリギリ")
-    root.geometry( str(window_w)+ "x" +  str(window_h) )
-
-    main_frame = tkinter.Frame(root)
-    main_frame.pack()
-    canvas_frame = tkinter.Frame(main_frame)
-    canvas_frame.grid(column=0,row=0)
-    button_frame = tkinter.Frame(main_frame)
-    button_frame.grid(column=1,row=0)
+    cutting_frame = tkinter.Frame(Giri_cutter)
+    cutting_frame.pack()
+    canvas_frame = tkinter.Frame(cutting_frame)
+    canvas_frame.grid(column=0, row=0)
+    button_frame = tkinter.Frame(cutting_frame)
+    button_frame.grid(column=1, row=0)
 
     # tkinterで表示できるように画像変換
-    img_tk = ImageTk.PhotoImage(img_resized)
+    img_tk = ImageTk.PhotoImage(img_resized, master=Giri_cutter)
 
     # Canvasウィジェットの描画
     canvas1 = tkinter.Canvas(canvas_frame,
@@ -258,10 +282,34 @@ if __name__ == "__main__":
     # 入力完了
     finB = tkinter.Button(
         button_frame, text='入力完了', command=trim_fin).pack()
-
+    topB = tkinter.Button(
+        button_frame, text='topに戻る\n保存はされません。', command=toTop).pack()
 
     canvas1.bind("<ButtonPress-1>", start_point_get)
     canvas1.bind("<Button1-Motion>", rect_drawing)
     canvas1.bind("<ButtonRelease-1>", release_action)
+    Giri_cutter.mainloop()
+
+
+def top_activate():
+    global top_frame
+    top_frame = tkinter.Frame(root)
+    top_frame.pack()
+    initB = tkinter.Button(
+        top_frame, text="初期設定をする", command=setting_ck).pack()
+
+    GiriGoB = tkinter.Button(
+        top_frame, text="解答用紙を斬る", command=input_ck).pack()
+
+
+# メイン処理 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+if __name__ == "__main__":
+
+    # 画面処理
+    root = tkinter.Tk()
+    root.title("採点ギリギリ")
+    root.geometry("300x300")
+
+    top_activate()
 
     root.mainloop()
