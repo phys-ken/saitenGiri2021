@@ -18,7 +18,7 @@ def trim(path, left, top, right, bottom):
 def readCSV():
   #もしcsvが無ければ、全部止める
   if os.path.isfile("./setting/trimData.csv") == False:
-    sys.exit()
+    return 0
   else:
     with open('./setting/trimData.csv') as f:
         reader = csv.reader(f)
@@ -28,7 +28,6 @@ def readCSV():
 
 
 data = readCSV()
-print(len(data))
 
 try:
   shutil.rmtree("./setting/output")

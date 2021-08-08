@@ -170,7 +170,7 @@ def back_one():
 
 def trim_fin():
     global Giri_cutter
-    ret = messagebox.askyesno('終了します', '現在のデータを保存し、ウィンドウを閉じますか？')
+    ret = messagebox.askyesno('終了します', '斬り方を決定し、ホームに戻っても良いですか？')
     if ret == True:
         cur = os.getcwd()
         beforePath = cur + "/setting/ini.csv"
@@ -182,7 +182,7 @@ def trim_fin():
 def setting_ck():
     if not os.path.exists("./setting/"):
         ret = messagebox.askyesno(
-            '初回起動です', '採点のために、いくつかのフォルダーをこのファイルと同じ場所に作成します。よろしいですか？')
+            '初回起動です', '採点のために、いくつかのフォルダーをこのファイルと同じ場所に作成します。\nよろしいですか？')
         if ret == True:
             initDir()
             messagebox.showinfo(
@@ -191,7 +191,8 @@ def setting_ck():
             # メッセージボックス（情報）
             messagebox.showinfo('終了', 'フォルダは作成しません。')
     else:
-        messagebox.showinfo('確認', '初期設定は完了しています。解答用紙を、setting/inputに入れてから、解答用紙分割をしてください。')
+        messagebox.showinfo(
+            '確認', '初期設定は完了しています。解答用紙を、setting/inputに入れてから、解答用紙分割をしてください。')
 
 
 def input_ck():
@@ -202,7 +203,8 @@ def input_ck():
         messagebox.showerror(
             "エラー", "setting/inputの中に、解答用紙のデータが存在しません。画像を入れてから、また開いてね。")
     else:
-      GiriActivate()
+        GiriActivate()
+
 
 def GiriActivate():
     global RESIZE_RETIO
@@ -212,11 +214,12 @@ def GiriActivate():
     global Giri_cutter
 
     def toTop():
-        ret = messagebox.askyesno('保存しません', '作業中のデータは保存されません。途中で保存はできないんです...')
+        ret = messagebox.askyesno(
+            '保存しません', '作業中のデータは保存されません。\n画面を移動しますか？')
         if ret == True:
-          Giri_cutter.destroy()
+            Giri_cutter.destroy()
         else:
-          pass
+            pass
 
     # 表示する画像の取得
     files = get_sorted_files(os.getcwd() + "/setting/input/*")
@@ -277,18 +280,98 @@ def GiriActivate():
 
     # 戻るボタン
     backB = tkinter.Button(
-        button_frame, text='一つ戻る', command=back_one).pack()
+        button_frame, text='一つ元に戻る\n', command=back_one).pack()
 
     # 入力完了
     finB = tkinter.Button(
-        button_frame, text='入力完了', command=trim_fin).pack()
+        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin).pack()
     topB = tkinter.Button(
-        button_frame, text='topに戻る\n保存はされません。', command=toTop).pack()
+        button_frame, text='topに戻る\n(保存はされません)', command=toTop).pack()
 
     canvas1.bind("<ButtonPress-1>", start_point_get)
     canvas1.bind("<Button1-Motion>", rect_drawing)
     canvas1.bind("<ButtonRelease-1>", release_action)
     Giri_cutter.mainloop()
+
+
+def trimck():
+        ret = messagebox.askyesno(
+            'すべての解答用紙を斬っちゃいます。', '全員の解答用紙を、斬ります。\n以下の注意を読んで、よければ始めてください。\n①10分くらい時間がかかります。\n②inputに保存された画像は、削除されません。\n③現在のoutputは全て消えます。')
+        if ret == True:
+            allTrim()
+        else:
+            pass
+
+
+def allTrim():
+    # トリミング前の画像の格納先
+    ORIGINAL_FILE_DIR = "./setting/input"
+    # トリミング後の画像の格納先
+    TRIMMED_FILE_DIR = "./setting/output"
+
+    def trim(path, left, top, right, bottom):
+        im = Image.open(path)
+        im_trimmed = im.crop((left, top, right, bottom))
+        return im_trimmed
+
+    def readCSV():
+        # もしcsvが無ければ、全部止める
+        if os.path.isfile("./setting/trimData.csv") == False:
+            return 0
+        else:
+            with open('./setting/trimData.csv') as f:
+                reader = csv.reader(f)
+                data = [row for row in reader]
+                data.pop(0)
+                return data
+
+    data = readCSV()
+
+    try:
+        shutil.rmtree("./setting/output")
+    except OSError as err:
+        pass
+
+    if data == 0:
+      messagebox.showinfo('終了', 'どうやって斬ればいいかわかりません。\nまずは斬り方を決めてください。')
+      return 0
+
+    while data:
+        title, left, top, right, bottom = data.pop(0)
+        print(title)
+        print(left, top, right, bottom)
+
+        outputDir = TRIMMED_FILE_DIR + "/" + title
+
+        # もしトリミング後の画像の格納先が存在しなければ作る
+        if os.path.isdir(outputDir) == False:
+            os.makedirs(outputDir)
+
+        # 画像ファイル名を取得
+        files = os.listdir(ORIGINAL_FILE_DIR)
+        # 特定の拡張子のファイルだけを採用。実際に加工するファイルの拡張子に合わせる
+        files = [name for name in files if name.split(
+            ".")[-1] in ['jpg', "jpeg", "png", "PNG", "JPEG", "JPG", "gif"]]
+
+        ## 例外処理をかく
+        for val in files:
+            # オリジナル画像へのパス
+            path = ORIGINAL_FILE_DIR + "/" + val
+            # トリミングされたimageオブジェクトを取得
+            im_trimmed = trim(path, int(left), int(top),
+                              int(right), int(bottom))
+            # トリミング後のディレクトリに保存。ファイル名の頭に"cut_"をつけている
+            # qualityは95より大きい値は推奨されていないらしい
+            im_trimmed.save(outputDir + "/" + val, quality=95)
+
+        print("トリミングが終了しました。")
+        print("********************************")
+    messagebox.showinfo('斬りました', '全員分の解答用紙を斬りました。')
+
+def exitGiri():
+  sys.exit()
+
+
 
 
 def top_activate():
@@ -299,7 +382,14 @@ def top_activate():
         top_frame, text="初期設定をする", command=setting_ck).pack()
 
     GiriGoB = tkinter.Button(
-        top_frame, text="解答用紙を斬る", command=input_ck).pack()
+        top_frame, text="どこを斬るか決める", command=input_ck).pack()
+
+    initB = tkinter.Button(
+        top_frame, text="全員の解答用紙を斬る", command=trimck).pack()
+
+    exitB = tkinter.Button(
+        top_frame, text="アプリを閉じる", command=exitGiri).pack()
+
 
 
 # メイン処理 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
