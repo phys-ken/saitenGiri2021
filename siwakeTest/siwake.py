@@ -1,3 +1,15 @@
+##　自分メモ
+# Q_000nより深い階層に潜り込まないようにする。
+# saitenGiriGiriからフォルダ名を受けて、表示する
+# Enter 押したら次にする
+# siwakeを実行した後に画面を閉じる。
+
+## できたら
+# 押してもいいリストを作る
+# 数字に連動して、canvasに○、△、×を表示する。
+
+
+
 from file_walker import folder_walker  # 自作関数
 from folder_selector import file_selector  # 自作関数
 
