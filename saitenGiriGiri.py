@@ -333,7 +333,7 @@ def allTrim():
         pass
 
     if data == 0:
-      messagebox.showinfo('終了', 'どうやって斬ればいいかわかりません。\nまずは斬り方を決めてください。')
+      messagebox.showinfo('終了', 'どうやって斬ればいいかわかりません。\nまずはどこを斬るかを決めてください。')
       return 0
 
     while data:
@@ -353,19 +353,26 @@ def allTrim():
         files = [name for name in files if name.split(
             ".")[-1] in ['jpg', "jpeg", "png", "PNG", "JPEG", "JPG", "gif"]]
 
-        ## 例外処理をかく
-        for val in files:
-            # オリジナル画像へのパス
-            path = ORIGINAL_FILE_DIR + "/" + val
-            # トリミングされたimageオブジェクトを取得
-            im_trimmed = trim(path, int(left), int(top),
-                              int(right), int(bottom))
-            # トリミング後のディレクトリに保存。ファイル名の頭に"cut_"をつけている
-            # qualityは95より大きい値は推奨されていないらしい
-            im_trimmed.save(outputDir + "/" + val, quality=95)
+        try:
+          for val in files:
+              # オリジナル画像へのパス
+              path = ORIGINAL_FILE_DIR + "/" + val
+              # トリミングされたimageオブジェクトを取得
+              im_trimmed = trim(path, int(left), int(top),
+                                int(right), int(bottom))
+              # トリミング後のディレクトリに保存。ファイル名の頭に"cut_"をつけている
+              # qualityは95より大きい値は推奨されていないらしい
+              im_trimmed.save(outputDir + "/" + val, quality=95)
 
-        print("トリミングが終了しました。")
-        print("********************************")
+          print("トリミングが終了しました。")
+          print("********************************")
+        except:
+          messagebox.showinfo('エラー', 'エラーが検出されました。中断します。\n\n' + str(sys.stderr))
+          try:
+            shutil.rmtree("./setting/output")
+          except OSError as err:
+            pass
+          return 0
     messagebox.showinfo('斬りました', '全員分の解答用紙を斬りました。')
 
 def exitGiri():
@@ -379,7 +386,7 @@ def top_activate():
     top_frame = tkinter.Frame(root)
     top_frame.pack()
     initB = tkinter.Button(
-        top_frame, text="初期設定をする", command=setting_ck).pack()
+        top_frame, text="初期設定をする", command=setting_ck,width = 10).pack()
 
     GiriGoB = tkinter.Button(
         top_frame, text="どこを斬るか決める", command=input_ck).pack()
