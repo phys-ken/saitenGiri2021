@@ -1,6 +1,11 @@
 # 採点斬り 2021バージョン(β版)
 
-## 初めに
+### 作者
+* 公立高校教員(理科・物理)
+* Twitterのリンクは[こちら](https://twitter.com/phys_ken)
+* Qiitaのリンクは[こちら](https://qiita.com/phys-ken)
+
+## はじめに
 * 竹内俊彦氏作成の[採点革命](http://www.nurs.or.jp/~lionfan/freesoft_45.html)や島守睦美氏作成の[採点斬り](http://www.nurs.or.jp/~lionfan/freesoft_49.html)などの素晴らしいフリーソフトを参考に、現在の環境でも動く同様のソフトを作成しました。
 
 * フリーソフトですが、著作権は放棄しません。
