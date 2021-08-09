@@ -307,7 +307,7 @@ def GiriActivate():
 
 def trimck():
     ret = messagebox.askyesno(
-        'すべての解答用紙を斬っちゃいます。', '全員の解答用紙を、斬ります。\n以下の注意を読んで、よければ始めてください。\n①10分くらい時間がかかります。\n②inputに保存された画像は、削除されません。\n③現在のoutputは全て消えます。')
+        'すべての解答用紙を斬っちゃいます。', '全員の解答用紙を、斬ります。\n以下の注意を読んで、よければ始めてください。\n\n ①受験者が100人以上いると、5分ほど時間がかかります。進捗は、一緒に起動したウィンドウに表示されています。\n②inputに保存された画像は、削除されません。\n③現在のoutputは全て消えます。')
     if ret == True:
         allTrim()
     else:
@@ -398,7 +398,7 @@ def allTrim():
             img = img.resize((int(namew / rr), int(nameh/rr)))
             img.save(f)
 
-    output_Sh()
+    output_name_sh()
     messagebox.showinfo('斬りました', '全員分の解答用紙を斬りました。')
 
 
@@ -696,11 +696,13 @@ def image_show(event):
 
 # 画像に対しラベリング - - - - - - - - - - - - - - - - - - - - - - - -
 def file_assort(event):
-
+    # todo [0~9]を、UIから判断させる
     if str(event.keysym) in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
         assort_dict[filename_lst[img_num]] = str(event.keysym)
-    else:
+    elif str(event.keysym) == "space":
         assort_dict[filename_lst[img_num]] = str("skip")
+    else:
+        assort_dict[filename_lst[img_num]] = str("そのキーは対応してません。")
 
     # ラベリングを表示
     if filename_lst[img_num] in assort_dict:
@@ -718,9 +720,9 @@ def assort_go(event):
 
     for f in assort_dict:
         # 仕分け前後のファイル名・フォルダ名を取得
-        # skipは、無視する。
+        # assort_dict[f]が[0~1]なら、フォルダを作る。
         print(assort_dict[f])
-        if not assort_dict[f] == "skip":
+        if assort_dict[f] in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
             f_dir = os.path.dirname(f)
             f_basename = os.path.basename(f)
             new_dir = os.path.join(f_dir, assort_dict[f])
@@ -791,8 +793,9 @@ def siwakeApp(Qnum):
 
     # 仕分け結果表示
     assort_t_var = tkinter.StringVar(siwake_frame)
+    assort_t_var.set("1 ~ 9のキーで点数を入力してください\n[space]で採点をskipします")
     assort_label = tkinter.Label(
-        siwake_frame, textvariable=assort_t_var, font=("Meiryo UI", 30))
+        siwake_frame, textvariable=assort_t_var, font=("Meiryo UI", 30), bg="white",  relief="sunken")
     assort_label.pack()
 
     # ファイル名ラベル描画設定
@@ -840,7 +843,7 @@ def siwakeApp(Qnum):
     siwake_win.mainloop
 
 
-def output_Sh():
+def output_name_sh():
 
     # 定数設定
     SHEET_TITLE = '採点シート'  # シート名の設定
@@ -952,6 +955,8 @@ def writeImg():
         else:
             return "?"
 
+    saiten2xlsx()
+
     files = glob.glob("./setting/input/*")
     data = readCSV_loc()
     img = Image.open(files[0])
@@ -1006,7 +1011,8 @@ def writeImg():
         img.save('setting/kaitoYousi/' + os.path.basename(f),
                  quality=100, optimize=True)
         print(os.path.basename(f) + "の採点は正しく終了しました。")
-    messagebox.showinfo("確認", "採点済みの解答用紙を作成しました。\n./setting/kaitoYousiの中に入っています。")
+    messagebox.showinfo(
+        "確認", "採点済みの解答用紙を作成しました。\n./setting/kaitoYousiの中に入っています。")
 
 
 def top_activate():
