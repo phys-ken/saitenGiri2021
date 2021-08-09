@@ -384,6 +384,7 @@ def allTrim():
                 pass
             return 0
     # nameフォルダの中身をリサイズ
+    # maxheight以上のときは、小さくする。
     maxheight = 50
     files = glob.glob("./setting/output/name/*")
     img = Image.open(files[0])
