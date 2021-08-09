@@ -39,6 +39,8 @@ def initDir():
 
 # 与えられたフォルダの全てのファイル(フルパス)をソートしてリストで返す
 # 拡張子が画像かどうかも判別し、画像のパスのみを返す。
+
+
 def get_sorted_files(dir_path):
     all_sorted = sorted(glob.glob(dir_path))
     fig_sorted = [s for s in all_sorted if s.endswith(
@@ -388,14 +390,13 @@ def allTrim():
     maxheight = 50
     files = glob.glob("./setting/output/name/*")
     img = Image.open(files[0])
-    namew , nameh = img.size
+    namew, nameh = img.size
     if nameh > maxheight:
         rr = nameh / maxheight
         for f in files:
             img = Image.open(f)
             img = img.resize((int(namew / rr), int(nameh/rr)))
             img.save(f)
-
 
     output_Sh()
     messagebox.showinfo('斬りました', '全員分の解答用紙を斬りました。')
@@ -406,14 +407,17 @@ def exitGiri():
 
 
 def info():
-    messagebox.showinfo("はじめに" , "オンラインヘルプをご覧ください。\n https://phys-ken.github.io/saitenGiri2021/")
+    messagebox.showinfo(
+        "はじめに", "オンラインヘルプをご覧ください。\n https://phys-ken.github.io/saitenGiri2021/")
+
 
 def outputXlsx():
     try:
         saiten2xlsx()
-        messagebox.showinfo("確認","setting/saiten.xlsxに、採点結果を書き込みました。")
+        messagebox.showinfo("確認", "setting/saiten.xlsxに、採点結果を書き込みました。")
     except:
-        messagebox.showerror("エラー","うまくいきませんでした...")
+        messagebox.showerror("エラー", "うまくいきませんでした...")
+
 
 def saiten2xlsx():
     def readCSV():
@@ -453,7 +457,6 @@ def saiten2xlsx():
                 except:
                     pass
 
-
     data = readCSV()
 
     xlPath = "./setting/saiten.xlsx"
@@ -474,7 +477,6 @@ def saiten2xlsx():
                     else:
                         setTensu(figname=f, qname=title, tensu="未")
     wb.save(xlPath)
-    
 
 
 def saitenSelect():
@@ -502,16 +504,15 @@ def saitenSelect():
     clcounter = 0
     for i in files_dir:
         if not i == "name":
-            misaiten =  len(next(os.walk("./setting/output/" + i))[2])
+            misaiten = len(next(os.walk("./setting/output/" + i))[2])
             lb.insert(tkinter.END, i)
             if misaiten == maxNinzu:
-                lb.itemconfig(clcounter, {'bg':'white'})
+                lb.itemconfig(clcounter, {'bg': 'white'})
             elif misaiten == 0:
-                lb.itemconfig(clcounter ,  {'bg':'gray'})
+                lb.itemconfig(clcounter,  {'bg': 'gray'})
             else:
-                lb.itemconfig(clcounter ,  {'bg':'pale green'})
+                lb.itemconfig(clcounter,  {'bg': 'pale green'})
             clcounter = clcounter + 1
-
 
     lb.grid(row=0, column=0)
     # Scrollbar
@@ -520,21 +521,22 @@ def saitenSelect():
         orient=tkinter.VERTICAL,
         command=lb.yview)
     lb['yscrollcommand'] = scrollbar.set
-    scrollbar.grid(row=0, column=1 ,  sticky=(tkinter.N, tkinter.S,tkinter.W))
-
-
-
+    scrollbar.grid(row=0, column=1,  sticky=(tkinter.N, tkinter.S, tkinter.W))
 
     button_frame = tkinter.Frame(selectQ)
-    button_frame.grid(row=0, column=1 , sticky=tkinter.W + tkinter.E + tkinter.N + tkinter.S , padx = 30 , pady = 30)
+    button_frame.grid(row=0, column=1, sticky=tkinter.W +
+                      tkinter.E + tkinter.N + tkinter.S, padx=30, pady=30)
 
-    siroKaisetsu = tkinter.Label(button_frame , text = "未採点" , bg = "white").pack(side = tkinter.TOP , fill = tkinter.X)
-    midoriKaisetsu = tkinter.Label(button_frame , text = "採点中" , bg = "pale green").pack(side = tkinter.TOP, fill = tkinter.X)
-    grayKaisetsu = tkinter.Label(button_frame , text = "採点終了" , bg = "gray").pack(side = tkinter.TOP, fill = tkinter.X)
+    siroKaisetsu = tkinter.Label(button_frame, text="未採点", bg="white").pack(
+        side=tkinter.TOP, fill=tkinter.X)
+    midoriKaisetsu = tkinter.Label(button_frame, text="採点中", bg="pale green").pack(
+        side=tkinter.TOP, fill=tkinter.X)
+    grayKaisetsu = tkinter.Label(button_frame, text="採点終了", bg="gray").pack(
+        side=tkinter.TOP, fill=tkinter.X)
 
     button1 = tkinter.Button(
         button_frame, text='採点する', width=15, height=3,
-        command=lambda: show_selection()).pack(expand= True)
+        command=lambda: show_selection()).pack(expand=True)
 
     totopB = tkinter.Button(
         button_frame, text='Topに戻る', width=15, height=3,
@@ -595,7 +597,7 @@ def load_file(Qnum):
     for f in img_lst:
 
         # キャンバス内に収まるようリサイズ
-        resized_img = img_resize_for_canvas(f, image_canvas , expand=True)
+        resized_img = img_resize_for_canvas(f, image_canvas, expand=True)
 
         # tkinterで表示できるように画像変換
         tk_img_lst.append(ImageTk.PhotoImage(
@@ -776,12 +778,12 @@ def siwakeApp(Qnum):
     siwake_frame = tkinter.Frame(siwake_win)
     siwake_frame.grid(column=0, row=0)
     button_siwake_frame = tkinter.Frame(siwake_win)
-    button_siwake_frame.grid(column=1, row=0 , sticky=tkinter.W + tkinter.E + tkinter.N + tkinter.S)
-
+    button_siwake_frame.grid(
+        column=1, row=0, sticky=tkinter.W + tkinter.E + tkinter.N + tkinter.S)
 
     # キャンバス描画設定
     image_canvas = tkinter.Canvas(siwake_frame,
-                                  bg = "green",
+                                  bg="green",
                                   width=640,
                                   height=480)
 
@@ -819,15 +821,18 @@ def siwakeApp(Qnum):
     # ファイル名ラベル描画設定
     saitenCount = tkinter.StringVar(button_siwake_frame)
     saitenCount.set("")
-    ikutsuLb = tkinter.Label(button_siwake_frame , textvariable=saitenCount , font=("Meiryo UI", 20))
-    ikutsuLb.pack(side = tkinter.TOP)
+    ikutsuLb = tkinter.Label(
+        button_siwake_frame, textvariable=saitenCount, font=("Meiryo UI", 20))
+    ikutsuLb.pack(side=tkinter.TOP)
 
     exit_button = tkinter.Button(
         button_siwake_frame, text="トップに戻る\n保存はされません", height=3, width=15,  command=exit_siwake)
     exit_button.pack()
 
-    backfigB = tkinter.Label(siwake_frame,text = "←前へ\nキーボードの←ボタン" , font=("Meiryo UI", 20)).pack(side = tkinter.LEFT ,expand = TRUE)
-    nextfigB = tkinter.Label(siwake_frame,text = "次へ→\nキーボードの→ボタン", font=("Meiryo UI", 20) ).pack(side = tkinter.RIGHT,expand = TRUE)
+    backfigB = tkinter.Label(siwake_frame, text="←前へ\nキーボードの←ボタン", font=(
+        "Meiryo UI", 20)).pack(side=tkinter.LEFT, expand=TRUE)
+    nextfigB = tkinter.Label(siwake_frame, text="次へ→\nキーボードの→ボタン", font=(
+        "Meiryo UI", 20)).pack(side=tkinter.RIGHT, expand=TRUE)
 
     # 読み込みボタン描画設定
     load_file(Qnum)
@@ -944,32 +949,32 @@ def top_activate():
         pass
 
     button_frame = tkinter.Frame(top_frame, bg="white", highlightthickness=0)
-    button_frame.grid(column=1, row=0, sticky=tkinter.W + tkinter.E + tkinter.N + tkinter.S)
-    
+    button_frame.grid(column=1, row=0, sticky=tkinter.W +
+                      tkinter.E + tkinter.N + tkinter.S)
+
     exBool = True
     botWid = 20
 
     infoB = tkinter.Button(
-        button_frame, text="はじめに", command=info, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
+        button_frame, text="はじめに", command=info, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
     initB = tkinter.Button(
-        button_frame, text="初期設定をする", command=setting_ck, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
+        button_frame, text="初期設定をする", command=setting_ck, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
     GiriGoB = tkinter.Button(
-        button_frame, text="どこを斬るか決める", command=input_ck, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
+        button_frame, text="どこを斬るか決める", command=input_ck, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
     initB = tkinter.Button(
-        button_frame, text="全員の解答用紙を斬る", command=trimck, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
+        button_frame, text="全員の解答用紙を斬る", command=trimck, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
     saitenB = tkinter.Button(
-        button_frame, text="斬った画像を採点する", command=saitenSelect, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
+        button_frame, text="斬った画像を採点する", command=saitenSelect, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
     outxlsxB = tkinter.Button(
-        button_frame, text="Excelに出力", command=outputXlsx, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
-
+        button_frame, text="Excelに出力", command=outputXlsx, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
     exitB = tkinter.Button(
-        button_frame, text="アプリを閉じる", command=exitGiri, width=botWid, height=2, highlightthickness=0).pack(expand= exBool)
+        button_frame, text="アプリを閉じる", command=exitGiri, width=botWid, height=2, highlightthickness=0).pack(expand=exBool)
 
 
 # メイン処理 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
