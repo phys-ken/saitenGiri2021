@@ -7,7 +7,6 @@
 
 ## はじめに
 * 竹内俊彦氏作成の[採点革命](http://www.nurs.or.jp/~lionfan/freesoft_45.html)や島守睦美氏作成の[採点斬り](http://www.nurs.or.jp/~lionfan/freesoft_49.html)などの素晴らしいフリーソフトを参考に、現在の環境でも動く同様のソフトを作成しました。
-
 * フリーソフトですが、著作権は放棄しません。
 * 転載、再配布は自由ですが、バグ対応等もあるので、現在のページ (https://phys-ken.github.io/saitenGiri2021/) へのリンクを貼ってください。
 * 無断で改造、商用利用は認めていません。
