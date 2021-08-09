@@ -36,7 +36,6 @@ def initDir():
     writer.writerow(["tag", "start_x", "start_y", "end_x", "end_y"])
     f.close()
 
-
 # 与えられたフォルダの全てのファイル(フルパス)をソートしてリストで返す
 # 拡張子が画像かどうかも判別し、画像のパスのみを返す。
 def get_sorted_files(dir_path):
@@ -869,15 +868,18 @@ def top_activate():
     fig_frame = tkinter.Frame(top_frame, width=fifwid, height=fifhet)
     fig_frame.grid(column=0, row=0)
 
-    topimg = Image.open("./appfigs/top.png")
-    topimg = topimg.resize(
-        (int(topimg.width * val), int(topimg.height * val)), 0)
-    topfig = ImageTk.PhotoImage(topimg, master=root)
-    canvas_top = tkinter.Canvas(
-        bg="white", master=fig_frame, width=fifwid + 30, height=fifhet, highlightthickness=0)
-    canvas_top.place(x=0, y=0)
-    canvas_top.create_image(0, 0, image=topfig, anchor=tkinter.NW)
-    canvas_top.pack()
+    try:
+        topimg = Image.open("./appfigs/top.png")
+        topimg = topimg.resize(
+            (int(topimg.width * val), int(topimg.height * val)), 0)
+        topfig = ImageTk.PhotoImage(topimg, master=root)
+        canvas_top = tkinter.Canvas(
+            bg="white", master=fig_frame, width=fifwid + 30, height=fifhet, highlightthickness=0)
+        canvas_top.place(x=0, y=0)
+        canvas_top.create_image(0, 0, image=topfig, anchor=tkinter.NW)
+        canvas_top.pack()
+    except:
+        pass
 
     button_frame = tkinter.Frame(top_frame, bg="white", highlightthickness=0)
     button_frame.grid(column=1, row=0)

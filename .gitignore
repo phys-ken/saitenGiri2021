@@ -2,4 +2,6 @@
 /setting
 /build
 /__pycache__
-/dist/setting/
+/dist_win/setting/
+/dist_mac/setting/
+/dist
