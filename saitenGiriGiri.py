@@ -289,13 +289,13 @@ def GiriActivate():
 
     # 戻るボタン
     backB = tkinter.Button(
-        button_frame, text='一つ前に戻る', command=back_one, width=10, height=4).pack()
+        button_frame, text='一つ前に戻る', command=back_one, width=20, height=4).pack()
 
     # 入力完了
     finB = tkinter.Button(
-        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin, width=10, height=4).pack()
+        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin, width=20, height=4).pack()
     topB = tkinter.Button(
-        button_frame, text='topに戻る\n(保存はされません)', command=toTop, width=10, height=4).pack()
+        button_frame, text='topに戻る\n(保存はされません)', command=toTop, width=20, height=4).pack()
 
     canvas1.bind("<ButtonPress-1>", start_point_get)
     canvas1.bind("<Button1-Motion>", rect_drawing)
@@ -409,8 +409,8 @@ def saiten2xlsx():
 
     def setTensu(figname, qname, tensu):
         xlPath = "./setting/saiten.xlsx"
-        wb = openpyxl.load_workbook(xlPath)
-        ws = wb["採点シート"]
+        #wb = openpyxl.load_workbook(xlPath)
+        #ws = wb["採点シート"]
 
         qCol = int(qname[-4:]) + 3
         ws.cell(1, qCol + 1).value = qname
@@ -436,7 +436,7 @@ def saiten2xlsx():
                 except:
                     pass
 
-        wb.save(xlPath)
+        #wb.save(xlPath)
 
     data = readCSV()
 
@@ -457,6 +457,8 @@ def saiten2xlsx():
                         setTensu(figname=f, qname=title, tensu=tensu)
                     else:
                         setTensu(figname=f, qname=title, tensu="未")
+    wb.save(xlPath)
+    
 
 
 def saitenSelect():
