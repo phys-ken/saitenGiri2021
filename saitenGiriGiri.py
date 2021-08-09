@@ -218,11 +218,14 @@ def GiriActivate():
     global canvas1
     global img_tk
     global Giri_cutter
+    global qCnt
 
     def toTop():
+        global qCnt
         ret = messagebox.askyesno(
             '保存しません', '作業中のデータは保存されません。\n画面を移動しますか？')
         if ret == True:
+            qCnt = 0
             Giri_cutter.destroy()
         else:
             pass
