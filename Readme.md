@@ -10,7 +10,7 @@
 * とは言っても、バグの報告をいただけた場合にはできる限り対応します。Githubのissueにあげてください。
 
 ## 使い方
-1. releaseのページから、最新版をダウンロードしてください。`dist`フォルダの中身が、アプリになります。
+1. [release](https://github.com/phys-ken/saitenGiri2021/releases)のページから、最新版をダウンロードしてください。`dist`フォルダの中身が、アプリになります。
 1. `saitenGiriGiri.exe`と、`appfigs`を同じフォルダに保存してください。
 1. 採点斬りを起動し、初期設定をしてください。同じ場所に、settingフォルダが展開されます。
 1. 解答用紙を、`./setting/input`に保存してください。
