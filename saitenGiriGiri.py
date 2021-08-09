@@ -408,9 +408,6 @@ def saiten2xlsx():
                 return data
 
     def setTensu(figname, qname, tensu):
-        xlPath = "./setting/saiten.xlsx"
-        #wb = openpyxl.load_workbook(xlPath)
-        #ws = wb["採点シート"]
 
         qCol = int(qname[-4:]) + 3
         ws.cell(1, qCol + 1).value = qname
@@ -436,7 +433,6 @@ def saiten2xlsx():
                 except:
                     pass
 
-        #wb.save(xlPath)
 
     data = readCSV()
 
