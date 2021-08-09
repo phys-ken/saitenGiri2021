@@ -1,2 +1,5 @@
 /.DS_Store
 /setting
+/build
+/__pycache__
+/dist/setting/
