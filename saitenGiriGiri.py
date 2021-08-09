@@ -379,6 +379,7 @@ def allTrim():
           except OSError as err:
             pass
           return 0
+    output_Sh()
     messagebox.showinfo('斬りました', '全員分の解答用紙を斬りました。')
 
 def exitGiri():
@@ -710,8 +711,8 @@ def siwakeApp(Qnum):
 def output_Sh():
 
   # 定数設定
-  SHEET_TITLE = '画像貼り付け' # シート名の設定
-  RESULT_FILE_NAME = './setting/name_register.xlsx' # 結果を保存するファイル名
+  SHEET_TITLE = '採点シート' # シート名の設定
+  RESULT_FILE_NAME = './setting/saiten.xlsx' # 結果を保存するファイル名
 
   # 変数
   max_height = [] # 各行の画像の高さの最大値を保持
@@ -780,7 +781,6 @@ def output_Sh():
 
   # ファイルへの書き込み
   wb.save(RESULT_FILE_NAME)
-  messagebox.showinfo("確認","setting/outputの中に、name_register.xlsxを作成しました。\n生徒の出席番号、名前を登録してください。\nこれをやらないと、個票が出力できません。")
 
 
 def top_activate():
@@ -822,8 +822,6 @@ def top_activate():
     initB = tkinter.Button(
         button_frame, text="全員の解答用紙を斬る", command=trimck, width = 15 ,height = 2 , highlightthickness=0).pack()
 
-    nameB = tkinter.Button(
-        button_frame, text="名前を登録するための\nExcelを出力する", command=output_Sh, width = 15 ,height = 2 , highlightthickness=0).pack()
 
     saitenB = tkinter.Button(
         button_frame, text="斬った画像を採点する", command=saitenSelect, width = 15 ,height = 2 , highlightthickness=0).pack()
