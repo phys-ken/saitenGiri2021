@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(['saitenGiriGiri.py'],
-             pathex=['/Users/nagakurakenya/Documents/教材作成/TestMaker/saitenGiriGiri'],
+             pathex=['C:\\Users\\user\\Documents\\GitHub\\saitenGiriGiri'],
              binaries=[],
              datas=[],
              hiddenimports=[],
