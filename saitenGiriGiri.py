@@ -391,7 +391,7 @@ def exitGiri():
 
 
 def info():
-    pass
+    messagebox.showinfo("はじめに" , "オンラインヘルプをご覧ください。\n https://phys-ken.github.io/saitenGiri2021/")
 
 
 def saiten2xlsx():
