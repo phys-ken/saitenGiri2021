@@ -286,13 +286,13 @@ def GiriActivate():
 
     # 戻るボタン
     backB = tkinter.Button(
-        button_frame, text='一つ前に戻る', command=back_one , width = 10 ,height = 4).pack()
+        button_frame, text='一つ前に戻る', command=back_one, width=10, height=4).pack()
 
     # 入力完了
     finB = tkinter.Button(
-        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin , width = 10 ,height = 4).pack()
+        button_frame, text='入力完了\n(保存して戻る)', command=trim_fin, width=10, height=4).pack()
     topB = tkinter.Button(
-        button_frame, text='topに戻る\n(保存はされません)', command=toTop , width = 10 ,height = 4).pack()
+        button_frame, text='topに戻る\n(保存はされません)', command=toTop, width=10, height=4).pack()
 
     canvas1.bind("<ButtonPress-1>", start_point_get)
     canvas1.bind("<Button1-Motion>", rect_drawing)
@@ -301,12 +301,12 @@ def GiriActivate():
 
 
 def trimck():
-        ret = messagebox.askyesno(
-            'すべての解答用紙を斬っちゃいます。', '全員の解答用紙を、斬ります。\n以下の注意を読んで、よければ始めてください。\n①10分くらい時間がかかります。\n②inputに保存された画像は、削除されません。\n③現在のoutputは全て消えます。')
-        if ret == True:
-            allTrim()
-        else:
-            pass
+    ret = messagebox.askyesno(
+        'すべての解答用紙を斬っちゃいます。', '全員の解答用紙を、斬ります。\n以下の注意を読んで、よければ始めてください。\n①10分くらい時間がかかります。\n②inputに保存された画像は、削除されません。\n③現在のoutputは全て消えます。')
+    if ret == True:
+        allTrim()
+    else:
+        pass
 
 
 def allTrim():
@@ -339,8 +339,8 @@ def allTrim():
         pass
 
     if data == 0:
-      messagebox.showinfo('終了', 'どうやって斬ればいいかわかりません。\nまずはどこを斬るかを決めてください。')
-      return 0
+        messagebox.showinfo('終了', 'どうやって斬ればいいかわかりません。\nまずはどこを斬るかを決めてください。')
+        return 0
 
     while data:
         title, left, top, right, bottom = data.pop(0)
@@ -360,86 +360,142 @@ def allTrim():
             ".")[-1] in ['jpg', "jpeg", "png", "PNG", "JPEG", "JPG", "gif"]]
 
         try:
-          for val in files:
-              # オリジナル画像へのパス
-              path = ORIGINAL_FILE_DIR + "/" + val
-              # トリミングされたimageオブジェクトを取得
-              im_trimmed = trim(path, int(left), int(top),
-                                int(right), int(bottom))
-              # トリミング後のディレクトリに保存。ファイル名の頭に"cut_"をつけている
-              # qualityは95より大きい値は推奨されていないらしい
-              im_trimmed.save(outputDir + "/" + val, quality=95)
+            for val in files:
+                # オリジナル画像へのパス
+                path = ORIGINAL_FILE_DIR + "/" + val
+                # トリミングされたimageオブジェクトを取得
+                im_trimmed = trim(path, int(left), int(top),
+                                  int(right), int(bottom))
+                # トリミング後のディレクトリに保存。ファイル名の頭に"cut_"をつけている
+                # qualityは95より大きい値は推奨されていないらしい
+                im_trimmed.save(outputDir + "/" + val, quality=95)
 
-          print("トリミングが終了しました。")
-          print("********************************")
+            print("トリミングが終了しました。")
+            print("********************************")
         except:
-          messagebox.showinfo('エラー', 'エラーが検出されました。中断します。\n\n' + str(sys.stderr))
-          try:
-            shutil.rmtree("./setting/output")
-          except OSError as err:
-            pass
-          return 0
+            messagebox.showinfo(
+                'エラー', 'エラーが検出されました。中断します。\n\n' + str(sys.stderr))
+            try:
+                shutil.rmtree("./setting/output")
+            except OSError as err:
+                pass
+            return 0
     output_Sh()
     messagebox.showinfo('斬りました', '全員分の解答用紙を斬りました。')
 
+
 def exitGiri():
-  sys.exit()
+    sys.exit()
 
 
 def info():
     pass
 
 
+def saiten2xlsx():
+    def readCSV():
+        # もしcsvが無ければ、全部止める
+        if os.path.isfile("./setting/trimData.csv") == False:
+            return 0
+        else:
+            with open('./setting/trimData.csv') as f:
+                reader = csv.reader(f)
+                data = [row for row in reader]
+                data.pop(0)
+                return data
+
+    def setTensu(figname, qname, tensu):
+        xlPath = "./setting/saiten.xlsx"
+        wb = openpyxl.load_workbook(xlPath)
+        ws = wb["採点シート"]
+
+        qCol = int(qname[-4:]) + 3
+        ws.cell(1, qCol + 1).value = qname
+
+        MIN_COL = 1
+        MIN_ROW = 2
+
+        MAX_COL = 1
+        MAX_ROW = ws.max_row
+
+        # 範囲データを順次処理
+        for row in ws.iter_rows(min_col=MIN_COL, min_row=MIN_ROW, max_col=MAX_COL, max_row=MAX_ROW):
+            for cell in row:
+                try:
+                    # 該当セルの値取得
+                    cell_value = cell.value
+                    if figname == cell_value:
+                        o = cell.offset(0, qCol)
+                        try:
+                            o.value = int(tensu)
+                        except:
+                            o.value = tensu
+                except:
+                    pass
+
+        wb.save(xlPath)
+
+    data = readCSV()
+
+    xlPath = "./setting/saiten.xlsx"
+    wb = openpyxl.load_workbook(xlPath)
+    ws = wb["採点シート"]
+
+    while data:
+        title, left, top, right, bottom = data.pop(0)
+        if title == "name":
+            continue
+        qpath = "./setting/output/" + title
+        for curDir, dirs, files in os.walk(qpath):
+            if files:
+                for f in files:
+                    tensu = os.path.basename(os.path.dirname(curDir + "/" + f))
+                    if not tensu == title:
+                        setTensu(figname=f, qname=title, tensu=tensu)
+                    else:
+                        setTensu(figname=f, qname=title, tensu="未")
+
 
 def saitenSelect():
     def show_selection():
         for i in lb.curselection():
             print(lb.get(i))
-            messagebox.showinfo("採点へ",str(lb.get(i) )+ "を採点します。")
             siwakeApp(str(lb.get(i)))
             selectQ.destroy()
-            
 
     def backTop():
         selectQ.destroy()
-
 
     selectQ = tkinter.Tk()
     selectQ.geometry("500x500")
     selectQ.title("採点する問題を選ぶ")
 
-
-
-    #outputの中のフォルダを取得
+    # outputの中のフォルダを取得
     path = "./setting/output/"
     files = os.listdir(path)
     files_dir = [f for f in files if os.path.isdir(os.path.join(path, f))]
     files_dir.sort()
-    lb = tkinter.Listbox(selectQ,selectmode='single', height=20 , width =20 )
+    lb = tkinter.Listbox(selectQ, selectmode='single', height=20, width=20)
     for i in files_dir:
         if not i == "name":
-            lb.insert(tkinter.END , i)
+            lb.insert(tkinter.END, i)
 
     lb.grid(row=0, column=0)
     button_frame = tkinter.Frame(selectQ)
-    button_frame.grid(row = 0,column=1)
+    button_frame.grid(row=0, column=1)
 
     button1 = tkinter.Button(
-        button_frame, text='OK', width = 15 ,height = 3 , 
+        button_frame, text='採点する', width=15, height=3,
         command=lambda: show_selection()).pack()
 
-
     totopB = tkinter.Button(
-        button_frame, text='Topに戻る',width = 15 ,height = 3,
+        button_frame, text='Topに戻る', width=15, height=3,
         command=backTop).pack()
-
 
     selectQ.mainloop
 
 
-
-
-def folder_walker(folder_path, recursive = False, file_ext = ".*"):
+def folder_walker(folder_path, recursive=False, file_ext=".*"):
     """
     指定されたフォルダのファイル一覧を取得する。
     引数を指定することで再帰的にも、非再帰的にも取得可能。
@@ -480,9 +536,9 @@ def load_file(Qnum):
             filename_lst.append(f)
         except:
             pass
-    
+
     if not img_lst:
-            tex_var.set("読み込む画像がありません。\n採点は終了しています。")
+        tex_var.set("読み込む画像がありません。\n採点は終了しています。")
 
     # ウィンドウサイズに合わせてキャンバスサイズを再定義
     # window_resize()
@@ -508,11 +564,12 @@ def load_file(Qnum):
     # ラベルの書き換え
     tex_var.set(filename_lst[img_num])
 
- 
     # 仕分け実行ボタンの配置
     assort_btn.pack()
 
 # 次の画像へ - - - - - - - - - - - - - - - - - - - - - - - -
+
+
 def next_img(event):
     global img_num
 
@@ -578,6 +635,8 @@ def img_resize_for_canvas(img, canvas, expand=False):
     return resized_img
 
 # 画像表示 - - - - - - - - - - - - - - - - - - - - - - - -
+
+
 def image_show(event):
     img_lst[img_num].show()
 
@@ -585,7 +644,7 @@ def image_show(event):
 # 画像に対しラベリング - - - - - - - - - - - - - - - - - - - - - - - -
 def file_assort(event):
 
-    if str(event.keysym) in ["0","1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+    if str(event.keysym) in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
         assort_dict[filename_lst[img_num]] = str(event.keysym)
     else:
         assort_dict[filename_lst[img_num]] = str("skip")
@@ -623,8 +682,10 @@ def assort_go(event):
             print(new_path)
         else:
             pass
-    messagebox.showinfo("採点保存","ここまでの採点結果を保存しました。\nskipした項目は、採点されていません。")
+    saiten2xlsx()
+    messagebox.showinfo("採点保存", "ここまでの採点結果を保存しました。\nskipした項目は、採点されていません。")
     siwake_win.destroy()
+
 
 def siwakeApp(Qnum):
     def exit_siwake():
@@ -633,7 +694,7 @@ def siwakeApp(Qnum):
             siwake_win.destroy()
 
     # グローバル変数
-    global img_lst, tk_img_lst 
+    global img_lst, tk_img_lst
     global filename_lst
     global assort_file_list
     global assort_dict
@@ -661,14 +722,14 @@ def siwakeApp(Qnum):
     siwake_win.title("採点中...")
     siwake_win.geometry("800x800")
     siwake_frame = tkinter.Frame(siwake_win)
-    siwake_frame.grid(column=0,row=0)
+    siwake_frame.grid(column=0, row=0)
     button_siwake_frame = tkinter.Frame(siwake_win)
-    button_siwake_frame.grid(column=1,row = 0)
+    button_siwake_frame.grid(column=1, row=0)
 
     # キャンバス描画設定
     image_canvas = tkinter.Canvas(siwake_frame,
-                             width=640,
-                             height=480)
+                                  width=640,
+                                  height=480)
 
     image_canvas.pack(expand=True, fill="both")
 
@@ -682,7 +743,8 @@ def siwakeApp(Qnum):
     tex_var = tkinter.StringVar(siwake_frame)
     tex_var.set("ファイル名")
 
-    lbl = tkinter.Label(siwake_frame, textvariable=tex_var, font=("Meiryo UI", 20))
+    lbl = tkinter.Label(siwake_frame, textvariable=tex_var,
+                        font=("Meiryo UI", 20))
     lbl["foreground"] = "gray"
     lbl.pack()
 
@@ -696,10 +758,12 @@ def siwakeApp(Qnum):
     siwake_win.bind("<Key>", file_assort)
 
     # 仕分け実行ボタン
-    assort_btn = tkinter.Button(button_siwake_frame, text="採点実行",  height=3 ,width=15)
+    assort_btn = tkinter.Button(
+        button_siwake_frame, text="採点実行",  height=3, width=15)
     assort_btn.bind("<Button-1>", assort_go)
 
-    exit_button = tkinter.Button(button_siwake_frame , text= "トップに戻る\n保存はされません" , height= 3 , width=15,  command=exit_siwake)
+    exit_button = tkinter.Button(
+        button_siwake_frame, text="トップに戻る\n保存はされません", height=3, width=15,  command=exit_siwake)
     exit_button.pack()
 
     # 読み込みボタン描画設定
@@ -710,77 +774,83 @@ def siwakeApp(Qnum):
 
 def output_Sh():
 
-  # 定数設定
-  SHEET_TITLE = '採点シート' # シート名の設定
-  RESULT_FILE_NAME = './setting/saiten.xlsx' # 結果を保存するファイル名
+    # 定数設定
+    SHEET_TITLE = '採点シート'  # シート名の設定
+    RESULT_FILE_NAME = './setting/saiten.xlsx'  # 結果を保存するファイル名
 
-  # 変数
-  max_height = [] # 各行の画像の高さの最大値を保持
+    # 変数
+    max_height = []  # 各行の画像の高さの最大値を保持
 
+    def get_file_names(set_dir_name):
+        """
+        ディレクトリ内のファイル名取得（ファイル名のみの一覧を取得）
+        """
+        file_names = os.listdir(set_dir_name)
+        temp_full_file_names = [os.path.join(set_dir_name, file_name) for file_name in file_names if os.path.isfile(
+            os.path.join(set_dir_name, file_name))]  # ファイルかどうかを判定
+        return temp_full_file_names
 
-  def get_file_names(set_dir_name):
-      """
-      ディレクトリ内のファイル名取得（ファイル名のみの一覧を取得）
-      """
-      file_names = os.listdir(set_dir_name)
-      temp_full_file_names = [os.path.join(set_dir_name, file_name) for file_name in file_names if os.path.isfile(os.path.join(set_dir_name, file_name))] # ファイルかどうかを判定
-      return temp_full_file_names
+    def attach_img(target_full_file_names, set_column_idx, set_dir_name):
+        """
+        画像を呼び出して、Excelに貼り付け
+        """
+        set_row_idx = 1
+        column_letter = "B"
+        # 各列の1行目に、貼り付ける画像があるディレクトリ名を入力
+        ws.cell(row=1, column=set_column_idx).value = "画像"
+        ws.cell(row=1, column=1).value = "ファイル名"  # ファイル名
+        ws.cell(row=1, column=3).value = "生徒番号"  # 出席番号
+        ws.cell(row=1, column=4).value = "名前"  # 名前
+        max_width = 0  # 画像の幅の最大値を保持するための変数
+        target_full_file_names.sort()  # ファイル名でソート
+        for target_file in target_full_file_names:
+            p = pathlib.Path(target_file)
+            target_file = p.resolve()
+            if imghdr.what(target_file) != None:  # 画像ファイルかどうかの判定
+                img = openpyxl.drawing.image.Image(target_file)
+                #print('[' + column_letter + '][' + str(set_row_idx+1) + ']' + target_file + 'を貼り付け')
 
-  def attach_img(target_full_file_names, set_column_idx, set_dir_name):
-      """
-      画像を呼び出して、Excelに貼り付け
-      """
-      set_row_idx = 1
-      column_letter = "B"
-      ws.cell(row=1, column=set_column_idx).value = "画像" # 各列の1行目に、貼り付ける画像があるディレクトリ名を入力
-      ws.cell(row=1, column=1).value = "ファイル名" # ファイル名
-      ws.cell(row=1, column=3).value = "生徒番号" # 出席番号
-      ws.cell(row=1, column=4).value = "名前" # 名前    
-      max_width = 0 # 画像の幅の最大値を保持するための変数
-      target_full_file_names.sort() # ファイル名でソート
-      for target_file in target_full_file_names:
-          p = pathlib.Path(target_file)
-          target_file = p.resolve()
-          if imghdr.what(target_file) != None: # 画像ファイルかどうかの判定
-              img = openpyxl.drawing.image.Image(target_file)
-              #print('[' + column_letter + '][' + str(set_row_idx+1) + ']' + target_file + 'を貼り付け')
+                # 画像のサイズを取得して、セルの大きさを合わせる（画像同士が重ならないようにするため）
+                size_img = Image.open(target_file)
+                width, height = size_img.size
+                if max_width < width:
+                    max_width = width
+                # 配列「max_height」において、「set_row_idx」番目の要素が存在しなければ、挿入
+                if not max_height[set_row_idx-1:set_row_idx]:
+                    max_height.insert(set_row_idx-1, height)
+                if max_height[set_row_idx-1] < height:
+                    max_height[set_row_idx-1] = height
+                ws.row_dimensions[set_row_idx +
+                                  1].height = max_height[set_row_idx-1] * 0.75
+                ws.column_dimensions[column_letter].width = int(
+                    max_width) * 0.13
 
-              # 画像のサイズを取得して、セルの大きさを合わせる（画像同士が重ならないようにするため）
-              size_img = Image.open(target_file)
-              width , height = size_img.size
-              if max_width < width:
-                  max_width = width
-              if not max_height[set_row_idx-1:set_row_idx]: # 配列「max_height」において、「set_row_idx」番目の要素が存在しなければ、挿入
-                  max_height.insert(set_row_idx-1, height)
-              if max_height[set_row_idx-1] < height:
-                  max_height[set_row_idx-1] = height
-              ws.row_dimensions[set_row_idx+1].height = max_height[set_row_idx-1] * 0.75
-              ws.column_dimensions[column_letter].width = int(max_width) * 0.13
+                # セルの行列番号から、そのセルの番地を取得
+                cell_address = ws.cell(
+                    row=set_row_idx + 1, column=set_column_idx).coordinate
+                img.anchor = cell_address
+                ws.add_image(img)  # シートに画像貼り付け
+                ws.cell(row=set_row_idx + 1,
+                        column=1).value = os.path.basename(target_file)
 
-              cell_address = ws.cell(row=set_row_idx + 1, column=set_column_idx).coordinate # セルの行列番号から、そのセルの番地を取得
-              img.anchor = cell_address
-              ws.add_image(img) # シートに画像貼り付け
-              ws.cell(row=set_row_idx + 1 , column = 1).value = os.path.basename(target_file)
+            set_row_idx += 1
 
-          set_row_idx += 1
+    # ワークブック設定
+    wb = openpyxl.Workbook()
+    ws = wb.worksheets[0]  # 1番目のシートを編集対象にする
+    ws.title = SHEET_TITLE  # 1番目のシートに名前を設定
 
+    # 貼り付ける画像を置いておくルートディレクトリ内のディレクトリ名を再帰的に取得
+    dir_name = "./setting/output/name"
 
-  # ワークブック設定
-  wb = openpyxl.Workbook()
-  ws = wb.worksheets[0] # 1番目のシートを編集対象にする
-  ws.title = SHEET_TITLE # 1番目のシートに名前を設定
+    column_idx = 2
 
-  # 貼り付ける画像を置いておくルートディレクトリ内のディレクトリ名を再帰的に取得
-  dir_name = "./setting/output/name"
+    f_names = get_file_names(dir_name)  # ファイル名取得
+    print(f_names)
+    attach_img(f_names, column_idx, dir_name)  # 画像貼り付け設定
 
-  column_idx = 2
-
-  f_names = get_file_names(dir_name) # ファイル名取得
-  print(f_names)
-  attach_img(f_names, column_idx, dir_name) # 画像貼り付け設定
-
-  # ファイルへの書き込み
-  wb.save(RESULT_FILE_NAME)
+    # ファイルへの書き込み
+    wb.save(RESULT_FILE_NAME)
 
 
 def top_activate():
@@ -793,43 +863,41 @@ def top_activate():
     global topfig
 
     global top_frame
-    top_frame = tkinter.Frame(root , bg = "white")
+    top_frame = tkinter.Frame(root, bg="white")
     top_frame.pack()
-    fig_frame = tkinter.Frame(top_frame ,width=fifwid,height=fifhet)
-    fig_frame.grid(column=0,row=0)
+    fig_frame = tkinter.Frame(top_frame, width=fifwid, height=fifhet)
+    fig_frame.grid(column=0, row=0)
 
     topimg = Image.open("./appfigs/top.png")
-    topimg = topimg.resize((int(topimg.width * val) , int(topimg.height * val )), 0)
-    topfig = ImageTk.PhotoImage(topimg , master = root)
-    canvas_top = tkinter.Canvas(bg = "white" , master = fig_frame ,width=fifwid + 30,height=fifhet , highlightthickness=0)
-    canvas_top.place(x=0,y=0)
-    canvas_top.create_image(0,0,image=topfig,anchor = tkinter.NW)
+    topimg = topimg.resize(
+        (int(topimg.width * val), int(topimg.height * val)), 0)
+    topfig = ImageTk.PhotoImage(topimg, master=root)
+    canvas_top = tkinter.Canvas(
+        bg="white", master=fig_frame, width=fifwid + 30, height=fifhet, highlightthickness=0)
+    canvas_top.place(x=0, y=0)
+    canvas_top.create_image(0, 0, image=topfig, anchor=tkinter.NW)
     canvas_top.pack()
 
-    button_frame = tkinter.Frame(top_frame ,bg="white" , highlightthickness=0)
-    button_frame.grid(column=1,row=0)
+    button_frame = tkinter.Frame(top_frame, bg="white", highlightthickness=0)
+    button_frame.grid(column=1, row=0)
 
     infoB = tkinter.Button(
-        button_frame, text="はじめに", command=info,width = 15 ,height = 2 , highlightthickness=0).pack()
-
+        button_frame, text="はじめに", command=info, width=15, height=2, highlightthickness=0).pack()
 
     initB = tkinter.Button(
-        button_frame, text="初期設定をする", command=setting_ck,width = 15 ,height = 2 , highlightthickness=0).pack()
+        button_frame, text="初期設定をする", command=setting_ck, width=15, height=2, highlightthickness=0).pack()
 
     GiriGoB = tkinter.Button(
-        button_frame, text="どこを斬るか決める", command=input_ck, width = 15 ,height = 2 , highlightthickness=0).pack()
+        button_frame, text="どこを斬るか決める", command=input_ck, width=15, height=2, highlightthickness=0).pack()
 
     initB = tkinter.Button(
-        button_frame, text="全員の解答用紙を斬る", command=trimck, width = 15 ,height = 2 , highlightthickness=0).pack()
-
+        button_frame, text="全員の解答用紙を斬る", command=trimck, width=15, height=2, highlightthickness=0).pack()
 
     saitenB = tkinter.Button(
-        button_frame, text="斬った画像を採点する", command=saitenSelect, width = 15 ,height = 2 , highlightthickness=0).pack()
-
+        button_frame, text="斬った画像を採点する", command=saitenSelect, width=15, height=2, highlightthickness=0).pack()
 
     exitB = tkinter.Button(
-        button_frame, text="アプリを閉じる", command=exitGiri, width = 15 ,height = 2 , highlightthickness=0).pack()
-
+        button_frame, text="アプリを閉じる", command=exitGiri, width=15, height=2, highlightthickness=0).pack()
 
 
 # メイン処理 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
