@@ -342,43 +342,47 @@ def allTrim():
         messagebox.showinfo('終了', 'どうやって斬ればいいかわかりません。\nまずはどこを斬るかを決めてください。')
         return 0
 
-    while data:
-        title, left, top, right, bottom = data.pop(0)
-        print(title)
-        print(left, top, right, bottom)
 
-        outputDir = TRIMMED_FILE_DIR + "/" + title
 
-        # もしトリミング後の画像の格納先が存在しなければ作る
-        if os.path.isdir(outputDir) == False:
-            os.makedirs(outputDir)
 
-        # 画像ファイル名を取得
-        files = os.listdir(ORIGINAL_FILE_DIR)
-        # 特定の拡張子のファイルだけを採用。実際に加工するファイルの拡張子に合わせる
-        files = [name for name in files if name.split(
-            ".")[-1] in ['jpg', "jpeg", "png", "PNG", "JPEG", "JPG", "gif"]]
 
-        try:
-            for val in files:
-                # オリジナル画像へのパス
-                path = ORIGINAL_FILE_DIR + "/" + val
-                # トリミングされたimageオブジェクトを取得
-                im = Image.open(path)
+
+    # 画像ファイル名を取得
+    files = os.listdir(ORIGINAL_FILE_DIR)
+    # 特定の拡張子のファイルだけを採用。実際に加工するファイルの拡張子に合わせる
+    files = [name for name in files if name.split(
+        ".")[-1] in ['jpg', "jpeg", "png", "PNG", "JPEG", "JPG", "gif"]]
+
+    try:
+        for val in files:
+            # オリジナル画像へのパス
+            path = ORIGINAL_FILE_DIR + "/" + val
+            # トリミングされたimageオブジェクトを取得
+            im = Image.open(path)
+            print(val + "を斬ります" )
+            for pos in data:
+                # 出力フォルダのパス
+                title , left , top , right , bottom = pos
+                outputDir = TRIMMED_FILE_DIR + "/" + title
+                # もしトリミング後の画像の格納先が存在しなければ作る
+                if os.path.isdir(outputDir) == False:
+                    os.makedirs(outputDir)
+
+
                 im_trimmed = im.crop((int(left), int(top), int(right), int(bottom)))
                 # qualityは95より大きい値は推奨されていないらしい
                 im_trimmed.save(outputDir + "/" + val, quality=95)
 
-            print("トリミングが終了しました。")
+                print("___"+ title + "を斬り取りました。" )
             print("********************************")
-        except:
-            messagebox.showinfo(
-                'エラー', 'エラーが検出されました。中断します。\n\n' + str(sys.stderr))
-            try:
-                shutil.rmtree("./setting/output")
-            except OSError as err:
-                pass
-            return 0
+    except:
+        messagebox.showinfo(
+            'エラー', 'エラーが検出されました。中断します。\n\n' + str(sys.stderr))
+        try:
+            shutil.rmtree("./setting/output")
+        except OSError as err:
+            pass
+        return 0
 
 
     # nameフォルダの中身をリサイズ
@@ -578,6 +582,7 @@ def load_file(Qnum):
     # ファイルから読み込める画像をリストに列挙
     for f in file_list:
         try:
+            print("__読み込み中..." + str(f))
             img_lst.append(Image.open(f))
             filename_lst.append(f)
         except:
