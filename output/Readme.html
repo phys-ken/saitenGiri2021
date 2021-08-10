@@ -392,7 +392,7 @@ code {
 <li>転載、再配布は自由ですが、バグ対応等もあるので、現在のページ (https://phys-ken.github.io/saitenGiri2021/) へのリンクを貼ってください。</li>
 <li>無断で改造、商用利用は認めていません。</li>
 <li>なお、このソフトウェアの使用によって生じた一切の損害について責任を負わないものとし、フリー版・シェアウェア版を問わず、個別のバグ対応は一切行いませんのでご注意下さい。</li>
-<li>とは言っても、バグの報告をいただけた場合にはできる限り対応します。TwitterのDMか、Githubのissueにあげてください。</li>
+<li>とは言っても、バグの報告をいただけた場合にはできる限り対応します。<a href="https://twitter.com/phys_ken">TwitterのDM</a>か、Githubのissueにあげてください。</li>
 </ul>
 <h2 id="%E4%BD%BF%E3%81%84%E6%96%B9">使い方</h2>
 <ol>
@@ -405,12 +405,16 @@ code {
 </ol>
 </li>
 <li>初期設定ボタンを押してください。同じ場所に、settingフォルダが展開されます。</li>
-<li>解答用紙を、<code>./setting/input</code>に保存してください。</li>
+<li>解答用紙を、<code>./setting/input</code>に保存してください。
+<ol>
+<li>練習用の画像を、<code>test_fig</code>の中に入れています。これは、元の採点斬りのサンプルを利用させていただいています。</li>
+</ol>
+</li>
 <li>斬る範囲を決めてください。(1枚目の解答用紙がロードされます。)<img src="appfigs/1giri.gif" alt="gifアニメ">
 <ol>
-<li>１か所目は名前、２か所目以降は設問になります。</li>
+<li>１か所目は名前、２か所目以降は回答部分になります。</li>
 <li>範囲を決める際は、実寸で0.5cm程度余白があるように選択すると、スキャン時の微妙なブレにも対応できると思います。</li>
-<li>決まったら、<code>入力終了</code>を押してください。</li>
+<li>決まったら、<strong>入力終了</strong>を押してください。</li>
 </ol>
 </li>
 <li>斬ります。裏側で動作しています。進み具合が気になる場合は、こっそり起動しているターミナルをみると、進捗のログが表示されています。
@@ -418,12 +422,12 @@ code {
 <li>このタイミングで、裏では<code>saiten.xlsx</code>が作成されています。</li>
 </ol>
 </li>
-<li>いよいよ採点です。少しUIがわかりづらいのですが、ご容赦ください...!<img src="appfigs/2saiten.gif" alt="gifアニメ">
+<li>いよいよ採点です。ver.3.0以降は、画面が少し見やすくなっています。...<img src="appfigs/2saiten.gif" alt="gifアニメ">
 <ol>
 <li>点数をキーボードの数字キーで入力します。</li>
 <li>矢印キーで、<code>次へ進む・前に戻る</code>ができます。</li>
-<li>shift を押すと、<code>skip</code> できます。<code>skip</code>とした項目は採点ボタンを押しても採点されず、次回選択時にまた出てきます。</li>
-<li>採点実行を押すと、得点をつけた項目が採点され、<code>setting/output</code>の中にある<code>saiten.xlsx</code>も更新されます。
+<li><code>shift</code> や <code>Enter</code> を押すと、<code>skip</code> できます。<code>skip</code>とした項目は採点ボタンを押しても採点されず、次回選択時にまた出てきます。</li>
+<li><strong>採点実行</strong>を押すと、得点をつけた項目が採点され、<code>setting/output</code>の中にある<code>saiten.xlsx</code>も更新されます。
 <ol>
 <li><code>saiten.xlsx</code>を起動している状態で<strong>採点実行</strong>をすると、動作がクラッシュします。</li>
 </ol>
@@ -431,7 +435,7 @@ code {
 </ol>
 </li>
 <li><strong>Excelに出力</strong>を押して、<code>saiten.xlsx</code>を作成します。 <img src="appfigs/3xlsx.png" alt="画像"></li>
-<li>採点済み画像を出力で、採点結果を出力します。<img src="appfigs/4kaitouyousi.jpg" alt="画像">
+<li><strong>採点済み画像を出力</strong>で、採点結果を出力します。<img src="appfigs/4kaitouyousi.jpg" alt="画像">
 <ol>
 <li>未採点の項目は<code>?</code>と表示させています。合計点は、<code>?</code>を無視して計算します。</li>
 </ol>
@@ -439,9 +443,15 @@ code {
 </ol>
 <h2 id="qa">Q&amp;A</h2>
 <ul>
-<li>もし採点を間違えたら?
+<li>画面が<em><strong>応答なし</strong></em>になる、フリーズか時間がかかっているだけなのか区別がつかない。
+<ul>
+<li>裏で起動しているコンソール(文字だけの画面)に、進捗が表示されています。そちらを見てください。</li>
+</ul>
+</li>
+<li>一回採点した内容を、もう一度確認したいときは？
 <ul>
 <li>採点の点検機能が実装できませんでした。<code>setting/output/Q_000X</code>の中に、配点ごとにフォルダが作成されています。お手数ですが、自分でフォルダ内を漁って、画像ファイルを<code>setting/output/Q_000X</code>の直下に保存して、再度採点をしてください。</li>
+<li>多分、フォルダのプレビューで一括表示した方が見やすいと思います。</li>
 </ul>
 </li>
 </ul>
