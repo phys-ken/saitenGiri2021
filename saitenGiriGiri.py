@@ -320,11 +320,6 @@ def allTrim():
     # トリミング後の画像の格納先
     TRIMMED_FILE_DIR = "./setting/output"
 
-    def trim(path, left, top, right, bottom):
-        im = Image.open(path)
-        im_trimmed = im.crop((left, top, right, bottom))
-        return im_trimmed
-
     def readCSV():
         # もしcsvが無ければ、全部止める
         if os.path.isfile("./setting/trimData.csv") == False:
@@ -369,9 +364,8 @@ def allTrim():
                 # オリジナル画像へのパス
                 path = ORIGINAL_FILE_DIR + "/" + val
                 # トリミングされたimageオブジェクトを取得
-                im_trimmed = trim(path, int(left), int(top),
-                                  int(right), int(bottom))
-                # トリミング後のディレクトリに保存。ファイル名の頭に"cut_"をつけている
+                im = Image.open(path)
+                im_trimmed = im.crop((int(left), int(top), int(right), int(bottom)))
                 # qualityは95より大きい値は推奨されていないらしい
                 im_trimmed.save(outputDir + "/" + val, quality=95)
 
@@ -385,6 +379,8 @@ def allTrim():
             except OSError as err:
                 pass
             return 0
+
+
     # nameフォルダの中身をリサイズ
     # maxheight以上のときは、小さくする。
     maxheight = 50
