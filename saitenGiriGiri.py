@@ -506,9 +506,7 @@ def saitenSelect():
     for i in files_dir:
         if not i == "name":
             misaiten = len([f for f in next(os.walk("./setting/output/" + i))[2] if not f.startswith('.')])
-
             lb.insert(tkinter.END, i)
-            print( str(maxNinzu) + "__み採点___" + str(misaiten))
             if misaiten == maxNinzu:
                 lb.itemconfig(clcounter, {'bg': 'white'})
             elif misaiten == 0:
@@ -701,10 +699,35 @@ def image_show(event):
 # 画像に対しラベリング - - - - - - - - - - - - - - - - - - - - - - - -
 def file_assort(event):
     # todo [0~9]を、UIから判断させる
-    if str(event.keysym) in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+    tokutenList = []
+    if cbln0.get():
+        tokutenList.append("0")
+    if cbln1.get():
+        tokutenList.append("1")        
+    if cbln2.get():
+        tokutenList.append("2")        
+    if cbln3.get():
+        tokutenList.append("3")        
+    if cbln4.get():
+        tokutenList.append("4")        
+    if cbln5.get():
+        tokutenList.append("5")        
+    if cbln6.get():
+        tokutenList.append("6")        
+    if cbln7.get():
+        tokutenList.append("7")        
+    if cbln8.get():
+        tokutenList.append("8")
+    if cbln9.get():
+        tokutenList.append("9")  
+    print("入力可能な点数は" + str(tokutenList))
+
+    if str(event.keysym) in tokutenList:
         assort_dict[filename_lst[img_num]] = str(event.keysym)
     elif str(event.keysym) == "space":
         assort_dict[filename_lst[img_num]] = str("skip")
+    elif str(event.keysym) in  ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
+        assort_dict[filename_lst[img_num]] = str("その点数は入力できません。\n右のチェックを確認してください。")
     else:
         assort_dict[filename_lst[img_num]] = str("そのキーは対応してません。")
 
@@ -724,7 +747,8 @@ def assort_go(event):
 
     for f in assort_dict:
         # 仕分け前後のファイル名・フォルダ名を取得
-        # assort_dict[f]が[0~1]なら、フォルダを作る。
+        # assort_dict[f]が[0~1]なら、フォルダを作る。      
+        
         print(assort_dict[f])
         if assort_dict[f] in ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]:
             f_dir = os.path.dirname(f)
@@ -768,6 +792,17 @@ def siwakeApp(Qnum):
     global siwake_win
     global saitenCount
 
+    global cbln0
+    global cbln1
+    global cbln2
+    global cbln3
+    global cbln4
+    global cbln5
+    global cbln6
+    global cbln7
+    global cbln8
+    global cbln9
+
     img_lst, tk_img_lst = [], []
     filename_lst = []
     assort_file_list = []
@@ -780,7 +815,7 @@ def siwakeApp(Qnum):
 
     siwake_win = tkinter.Tk()
     siwake_win.title("採点中...")
-    siwake_win.geometry("800x800")
+    siwake_win.geometry("1000x800")
     siwake_frame = tkinter.Frame(siwake_win)
     siwake_frame.grid(column=0, row=0)
     button_siwake_frame = tkinter.Frame(siwake_win)
@@ -840,6 +875,32 @@ def siwakeApp(Qnum):
         "Meiryo UI", 20)).pack(side=tkinter.LEFT, expand=TRUE)
     nextfigB = tkinter.Label(siwake_frame, text="次へ→\nキーボードの→ボタン", font=(
         "Meiryo UI", 20)).pack(side=tkinter.RIGHT, expand=TRUE)
+
+    ## 禁則処理のゾーン-------------
+    setumeiBun1 = tkinter.Label(button_siwake_frame , text = "入力可能な点数にチェックをつけてください。" ).pack(side = tkinter.TOP)
+    setumeiBun2 = tkinter.Label(button_siwake_frame , text = "誤った数字キーを押すのを防ぎます。").pack(side = tkinter.TOP)
+    chkfonts = ("Meiryo UI", 10)
+    cbln0 = tkinter.BooleanVar(master = siwake_win)
+    chk0 = tkinter.Checkbutton(  master = button_siwake_frame,  variable=cbln0 ,text='0' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln1 = tkinter.BooleanVar(master = siwake_win)
+    chk1 = tkinter.Checkbutton( variable=cbln1 , master = button_siwake_frame, text='1' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln2 = tkinter.BooleanVar(master = siwake_win)
+    chk2 = tkinter.Checkbutton( variable=cbln2 , master = button_siwake_frame, text='2' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln3 = tkinter.BooleanVar(master = siwake_win)
+    chk3 = tkinter.Checkbutton( variable=cbln3 , master = button_siwake_frame, text='3' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln4 = tkinter.BooleanVar(master = siwake_win)
+    chk4 = tkinter.Checkbutton( variable=cbln4 , master = button_siwake_frame, text='4' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln5 = tkinter.BooleanVar(master = siwake_win)
+    chk5 = tkinter.Checkbutton( variable=cbln5 , master = button_siwake_frame, text='5' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln6 = tkinter.BooleanVar(master = siwake_win)
+    chk6 = tkinter.Checkbutton( variable=cbln6 , master = button_siwake_frame, text='7' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln7 = tkinter.BooleanVar(master = siwake_win)
+    chk7 = tkinter.Checkbutton( variable=cbln7 , master = button_siwake_frame, text='7' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln8 = tkinter.BooleanVar(master = siwake_win)
+    chk8 = tkinter.Checkbutton( variable=cbln8 , master = button_siwake_frame, text='8' , font = chkfonts).pack(side = tkinter.TOP)
+    cbln9 = tkinter.BooleanVar(master = siwake_win)
+    chk9 = tkinter.Checkbutton( variable=cbln9 , master = button_siwake_frame, text='9' , font = chkfonts).pack(side = tkinter.TOP)
+
 
     # 読み込みボタン描画設定
     load_file(Qnum)
