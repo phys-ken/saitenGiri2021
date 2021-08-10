@@ -493,7 +493,8 @@ def saitenSelect():
     selectQ.geometry("500x500")
     selectQ.title("採点する問題を選ぶ")
 
-    maxNinzu = len(next(os.walk("./setting/input/"))[2])
+    # macにおける、.DS_storeを無視してカウントする。
+    maxNinzu = len([f for f in next(os.walk("./setting/input/"))[2] if not f.startswith('.')])
 
     # outputの中のフォルダを取得
     path = "./setting/output/"
@@ -504,8 +505,10 @@ def saitenSelect():
     clcounter = 0
     for i in files_dir:
         if not i == "name":
-            misaiten = len(next(os.walk("./setting/output/" + i))[2])
+            misaiten = len([f for f in next(os.walk("./setting/output/" + i))[2] if not f.startswith('.')])
+
             lb.insert(tkinter.END, i)
+            print( str(maxNinzu) + "__み採点___" + str(misaiten))
             if misaiten == maxNinzu:
                 lb.itemconfig(clcounter, {'bg': 'white'})
             elif misaiten == 0:
@@ -977,8 +980,13 @@ def writeImg():
                 mojiSize = int(w/2)
             else:
                 mojiSize = int(h/2)
-            font = ImageFont.truetype("arial.ttf", int(
-                mojiSize))  # フォントを指定、64はサイズでピクセル単位
+            try:
+                font = ImageFont.truetype("arial.ttf", int(
+                    mojiSize))  # フォントを指定、64はサイズでピクセル単位
+            except:
+                font = ImageFont.truetype("AppleGothic.ttf", int(
+                    mojiSize))  # フォントを指定、64はサイズでピクセル単位                
+
 
     for f in files:
         img = Image.open(f)
