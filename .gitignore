@@ -5,3 +5,5 @@
 /dist_win/setting/
 /dist_mac/setting/
 /dist
+*DS_Store
+__pycache__
