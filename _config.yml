@@ -1,4 +1,5 @@
 theme: jekyll-theme-modernist
 show_downloads: true 
 google_analytics: UA-204703715-1
-plugins: jekyll-sitemap
+plugins:
+ - jekyll-sitemap
