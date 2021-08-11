@@ -1075,8 +1075,8 @@ def writeImg():
         text = str(sumVal)
         draw.text((int(int(nmright) - mojiSize/2), int(nmtop)),
                   text, font=font, fill="red")
-        draw.rectangle((int(int(nmright) - mojiSize/2), int(nmtop),
-                       int(int(nmright) + mojiSize/2), int(nmtop) + mojiSize),  outline="red")
+        draw.rectangle((int(int(nmright) - mojiSize * 1.5), int(nmtop) + mojiSize,
+                       int(int(nmright) + mojiSize * 1.5), int(nmtop) + mojiSize),  outline="red")
         # ファイルを保存
         img.save('setting/kaitoYousi/' + os.path.basename(f),
                  quality=100, optimize=True)
