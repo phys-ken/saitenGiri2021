@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(['saitenGiriGiri.py'],
-             pathex=['/Users/nagakurakenya/Documents/教材作成/TestMaker/saitenGiriGiri'],
+             pathex=['C:\\Users\\user\\Documents\\GitHub\\saitenGiriGiri'],
              binaries=[],
              datas=[],
              hiddenimports=[],
@@ -20,13 +20,15 @@ a = Analysis(['saitenGiriGiri.py'],
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 
+a.datas += [("top.png" , "./appfigs/top.png" , "DATA")]
+
 exe = EXE(pyz,
           a.scripts,
           a.binaries,
           a.zipfiles,
           a.datas,  
           [],
-          name='saitenGiriGiri',
+          name='採点斬り2021',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
@@ -37,4 +39,4 @@ exe = EXE(pyz,
           disable_windowed_traceback=False,
           target_arch=None,
           codesign_identity=None,
-          entitlements_file=None )
+          entitlements_file=None , icon='appfigs\\icon.ico')
