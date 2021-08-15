@@ -14,11 +14,11 @@
 * とは言っても、バグの報告をいただけた場合にはできる限り対応します。[TwitterのDM](https://twitter.com/phys_ken)か、Githubのissueにあげてください。
 
 ## 使い方
-1. このページ右上のダウンロードボタンか、[Release](https://github.com/phys-ken/saitenGiri2021/releases)のページから、最新版をダウンロードしてください。`dist`フォルダの中身が、アプリになります。
-1. **採点斬り2021.exe**が実行ファイルになります。(2021/8/14より、windows版においては、実行ファイルのみで動作するようになりました。)
+1. このページ右上のダウンロードボタンか、[Release](https://github.com/phys-ken/saitenGiri2021/releases)のページから、最新版をダウンロードしてください。`dist_XXX`フォルダの中身が、アプリになります。
+1. Windowsだと**採点斬り2021.exe**、Macだと**saitenGiri2021**がソフト本体になります。インストール等は不要なので、お好みの場所にソフトを保存してください。
 1. 採点斬りを起動してください。
     1. windowsの場合は、ダブルクリックしてください。
-    1. macの場合は、ターミナルから`./saitenGiriGiri`で起動してください。ダブルクリックだと、うまく起動されません。
+    1. macの場合は、ターミナルでアプリが保存されているフォルダに移動してから、`./saitenGiri2021`で起動してください。ダブルクリックだと、うまく起動されません。
 1. 初期設定ボタンを押してください。同じ場所に、settingフォルダが展開されます。
 1. 解答用紙を、`./setting/input`に保存してください。
     1. 練習用の画像を、`test_fig`の中に入れています。これは、元の採点斬りのサンプルを利用させていただいています。
@@ -49,5 +49,8 @@
 ## 今後の計画
 * UIをもっとわかりやすくしたいと思っています。
 
-## 謝辞
-* 参考にしたサイトがありすぎて、まとめられていません。
+## 参考にしたサイト等
+* [【Python】簡易的な仕分け機能付き画像ビューワー作ってみた](https://qiita.com/hisakichi95/items/84b73ba14731bc68608a)
+* [【python】マウスドラッグで画像から範囲指定する](https://qiita.com/hisakichi95/items/47f6d37e6f425f29c8a8)
+* [How to make a tkinter canvas rectangle transparent?](https://stackoverflow.com/questions/54637795/how-to-make-a-tkinter-canvas-rectangle-transparent/54645103)
+* [【python, pyinstaller】画像や音楽などの外部ファイルも一括でexe化して配布する](https://msteacher.hatenablog.jp/entry/2020/06/27/170529)
