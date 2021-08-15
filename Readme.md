@@ -1,9 +1,5 @@
 # 採点斬り 2021バージョン
 
-### 作者
-* 公立高校教員(理科・物理)
-* Twitterのリンクは[こちら](https://twitter.com/phys_ken)
-* Qiitaのリンクは[こちら](https://qiita.com/phys-ken)
 
 ## はじめに
 * 竹内俊彦氏作成の[採点革命](http://www.nurs.or.jp/~lionfan/freesoft_45.html)や島守睦美氏作成の[採点斬り](http://www.nurs.or.jp/~lionfan/freesoft_49.html)などの素晴らしいフリーソフトを参考に、現在の環境でも動く同様のソフトを作成しました。
@@ -12,6 +8,7 @@
 * 無断で改造、商用利用は認めていません。
 * なお、このソフトウェアの使用によって生じた一切の損害について責任を負わないものとし、フリー版・シェアウェア版を問わず、個別のバグ対応は一切行いませんのでご注意下さい。
 * とは言っても、バグの報告をいただけた場合にはできる限り対応します。[TwitterのDM](https://twitter.com/phys_ken)か、Githubのissueにあげてください。
+* Qiitaに記事を書きました。処理の概要やコードに関する踏み込んだ解説はこっちの方に書きました。[【デジタル採点】採点斬り2021verをPythonで作ってみた](https://qiita.com/phys-ken/items/4fac021504d7fe6b98b2)
 
 ## 使い方
 1. このページ右上のダウンロードボタンか、[Release](https://github.com/phys-ken/saitenGiri2021/releases)のページから、最新版をダウンロードしてください。`dist_XXX`フォルダの中身が、アプリになります。
@@ -54,3 +51,9 @@
 * [【python】マウスドラッグで画像から範囲指定する](https://qiita.com/hisakichi95/items/47f6d37e6f425f29c8a8)
 * [How to make a tkinter canvas rectangle transparent?](https://stackoverflow.com/questions/54637795/how-to-make-a-tkinter-canvas-rectangle-transparent/54645103)
 * [【python, pyinstaller】画像や音楽などの外部ファイルも一括でexe化して配布する](https://msteacher.hatenablog.jp/entry/2020/06/27/170529)
+
+
+### 作者
+* 公立高校教員(理科・物理)
+* Twitterのリンクは[こちら](https://twitter.com/phys_ken)
+* Qiitaのリンクは[こちら](https://qiita.com/phys-ken)
