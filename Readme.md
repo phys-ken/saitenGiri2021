@@ -1,6 +1,9 @@
 # 採点斬り 2021バージョン
 ![トップ](./appfigs/top.png)
-このページ下部に、Q＆Aや質問一覧があります。
+* <font color="red">このページ下部に、Q＆Aや過去のトラブル一覧があります。ソフトを使う前に、まずはそちらをご覧ください。</font>
+
+* 解説動画を作りました。[Youtubeに飛びます。](https://youtu.be/zhaWaxFah2g)
+
 
 ## はじめに
 * 竹内俊彦氏作成の[採点革命](http://www.nurs.or.jp/~lionfan/freesoft_45.html)や島守睦美氏作成の[採点斬り](http://www.nurs.or.jp/~lionfan/freesoft_49.html)などの素晴らしいフリーソフトを参考に、現在の環境でも動く同様のソフトを作成しました。
