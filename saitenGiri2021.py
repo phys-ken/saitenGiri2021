@@ -706,7 +706,6 @@ def image_show(event):
 
 # 画像に対しラベリング - - - - - - - - - - - - - - - - - - - - - - - -
 def file_assort(event):
-    # todo [0~9]を、UIから判断させる
     tokutenList = []
     if cbln0.get():
         tokutenList.append("0")
@@ -901,7 +900,7 @@ def siwakeApp(Qnum):
     cbln5 = tkinter.BooleanVar(master = siwake_win)
     chk5 = tkinter.Checkbutton( variable=cbln5 , master = button_siwake_frame, text='5' , font = chkfonts).pack(side = tkinter.TOP)
     cbln6 = tkinter.BooleanVar(master = siwake_win)
-    chk6 = tkinter.Checkbutton( variable=cbln6 , master = button_siwake_frame, text='7' , font = chkfonts).pack(side = tkinter.TOP)
+    chk6 = tkinter.Checkbutton( variable=cbln6 , master = button_siwake_frame, text='6' , font = chkfonts).pack(side = tkinter.TOP)
     cbln7 = tkinter.BooleanVar(master = siwake_win)
     chk7 = tkinter.Checkbutton( variable=cbln7 , master = button_siwake_frame, text='7' , font = chkfonts).pack(side = tkinter.TOP)
     cbln8 = tkinter.BooleanVar(master = siwake_win)
