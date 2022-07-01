@@ -81,6 +81,7 @@
 
 
 ### 作者
-* 公立高校教員(理科・物理)
+* phys_ken HPは[こちら](https://phys-ken.github.io/phys-ken/)
+  * 公立高校教員(理科・物理)です、教員５年目になりました(2022年現在)。
 * Twitterのリンクは[こちら](https://twitter.com/phys_ken)
 * Qiitaのリンクは[こちら](https://qiita.com/phys-ken)
