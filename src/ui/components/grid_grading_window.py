@@ -6,7 +6,7 @@ import shutil
 import tkinter as tk
 from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
-from typing import List, Dict, Optional, Any, Tuple, Callable
+from typing import List, Dict, Optional, Any, Tuple, Callable, Literal
 import time
 
 from ...core.grader import Grader
@@ -15,6 +15,9 @@ from ...utils.image_utils import (
     calculate_whiteness, get_image_with_score_overlay
 )
 from ...utils.file_utils import SETTING_DIR, get_sorted_image_files
+
+# 採点モードの定義
+GradingMode = Literal["continuous", "single", "fixed"]
 
 
 class GridGradingWindow:
@@ -54,6 +57,12 @@ class GridGradingWindow:
         self.scale_factor = 1.0  # 画像の表示倍率
         self.columns = 4  # グリッドの列数
         self.sort_mode = "filename"  # ソートモード（"filename", "score_asc", "score_desc", "whiteness"）
+        
+        # 採点モード関連の変数
+        self.grading_mode: GradingMode = "single"  # デフォルトは「一つずつクリック採点」モード
+        self.active_score = ""  # 連続クリック採点モードでのアクティブな点数
+        self.current_active_item = None  # 一つずつクリック採点モードでのアクティブなアイテム
+        self.fixed_mode_index = 0  # 固定採点モードでの現在のインデックス
         
         # 許可されている点数のリスト
         self.allowed_scores = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -149,6 +158,24 @@ class GridGradingWindow:
         self.col_value_label = tk.Label(self.control_frame, text=f"{self.columns}列")
         self.col_value_label.pack(side=tk.LEFT, padx=5)
         
+        # 採点モード選択
+        mode_label = tk.Label(self.control_frame, text="採点モード:")
+        mode_label.pack(side=tk.LEFT, padx=10)
+        
+        self.mode_var = tk.StringVar(value="一つずつクリック採点")
+        mode_options = ["一つずつクリック採点", "連続クリック採点", "固定採点"]
+        
+        self.mode_menu = ttk.Combobox(
+            self.control_frame, 
+            textvariable=self.mode_var, 
+            values=mode_options,
+            state="readonly",
+            width=20
+        )
+        self.mode_menu.current(0)
+        self.mode_menu.pack(side=tk.LEFT, padx=5)
+        self.mode_menu.bind("<<ComboboxSelected>>", self._on_mode_change)
+        
         # 採点ボタン
         self.grade_button = tk.Button(
             self.control_frame,
@@ -174,6 +201,26 @@ class GridGradingWindow:
             width=15
         )
         self.selection_info.pack(side=tk.RIGHT, padx=10)
+        
+        # 採点モード表示のステータスバー
+        self.status_frame = tk.Frame(self.main_frame, height=30, bg="#f0f0f0")
+        self.status_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
+        
+        self.mode_status_label = tk.Label(
+            self.status_frame,
+            text="現在のモード: 一つずつクリック採点",
+            font=("", 10, "bold"),
+            bg="#f0f0f0"
+        )
+        self.mode_status_label.pack(side=tk.LEFT, padx=10)
+        
+        self.active_score_label = tk.Label(
+            self.status_frame,
+            text="",
+            font=("", 10),
+            bg="#f0f0f0"
+        )
+        self.active_score_label.pack(side=tk.LEFT, padx=10)
         
         # キャンバスフレーム（スクロール可能なグリッド表示エリア）
         self.canvas_frame = tk.Frame(self.main_frame)
@@ -214,6 +261,7 @@ class GridGradingWindow:
         self.score_buttons_frame.pack(fill=tk.X, padx=5, pady=5)
         
         # 点数ボタンを作成
+        self.score_buttons = []
         for i in range(10):
             score_btn = tk.Button(
                 self.score_buttons_frame,
@@ -223,6 +271,7 @@ class GridGradingWindow:
                 command=lambda score=str(i): self._set_score_to_selected(score)
             )
             score_btn.pack(side=tk.LEFT, padx=2)
+            self.score_buttons.append(score_btn)
         
         # skipボタン
         skip_btn = tk.Button(
@@ -526,6 +575,32 @@ class GridGradingWindow:
     
     def _on_item_click(self, event, file_path: str) -> None:
         """画像アイテムがクリックされた時の処理"""
+        # 現在の採点モードによって処理を分岐
+        if self.grading_mode == "continuous":
+            # 連続クリック採点モード：アクティブなスコアがあれば直接採点
+            if self.active_score:
+                self.score_dict[file_path] = self.active_score
+                print(f"連続クリック採点: {os.path.basename(file_path)} → {self.active_score}")
+                self._update_grid_view()
+                return
+            else:
+                # アクティブスコアが設定されていない場合は選択のみ
+                self.selected_items = {file_path}
+                self.selection_info.config(text="選択: 1 件")
+                self._update_grid_view()
+                messagebox.showinfo("情報", "連続クリック採点モードでは、先に点数ボタンをクリックしてアクティブな点数を設定してください。")
+                return
+        
+        elif self.grading_mode == "fixed":
+            # 固定採点モード：選択して、次のステップでキーボード入力待ち
+            self.selected_items = {file_path}
+            self.selection_info.config(text="選択: 1 件 (数字キーで採点)")
+            self.current_active_item = file_path
+            self._update_grid_view()
+            return
+        
+        # 以下は「一つずつクリック採点」モードまたはデフォルト動作
+        
         # Ctrlキーが押されている場合は複数選択
         if event.state & 0x0004:  # Ctrlキー
             if file_path in self.selected_items:
@@ -602,6 +677,46 @@ class GridGradingWindow:
             self.col_value_label.config(text=f"{self.columns}列")
             self._update_grid_view()
     
+    def _on_mode_change(self, event=None) -> None:
+        """採点モードが変更された時の処理"""
+        selected_text = self.mode_menu.get()
+        
+        # 前のモードのリセット処理
+        self.active_score = ""
+        self.current_active_item = None
+        
+        # すべての点数ボタンを通常状態に戻す
+        for btn in self.score_buttons:
+            btn.config(relief=tk.RAISED, bg="SystemButtonFace")
+        
+        if selected_text == "一つずつクリック採点":
+            self.grading_mode = "single"
+            self.mode_status_label.config(text="現在のモード: 一つずつクリック採点")
+            self.active_score_label.config(text="画像を選択してから点数をクリック")
+            
+        elif selected_text == "連続クリック採点":
+            self.grading_mode = "continuous"
+            self.mode_status_label.config(text="現在のモード: 連続クリック採点")
+            self.active_score_label.config(text="点数ボタンを選択してください")
+            
+        elif selected_text == "固定採点":
+            self.grading_mode = "fixed"
+            self.mode_status_label.config(text="現在のモード: 固定採点")
+            self.active_score_label.config(text="画像を選択してから数字キーで採点")
+            
+            # 固定採点モードでは最初の画像が選択されている状態にする
+            sorted_files = self._get_sorted_files()
+            if sorted_files:
+                self.current_active_item = sorted_files[0]
+                self.selected_items = {sorted_files[0]}
+                self.selection_info.config(text="選択: 1 件 (数字キーで採点)")
+        
+        # ヒント表示を更新
+        self._update_mode_hint()
+        
+        # グリッド表示を更新
+        self._update_grid_view()
+    
     def _on_canvas_configure(self, event=None) -> None:
         """キャンバスがリサイズされた時の処理"""
         # グリッドフレームの幅をキャンバスの幅に合わせる
@@ -613,14 +728,96 @@ class GridGradingWindow:
         
         # 数字キーの場合は採点
         if key in self.allowed_scores:
-            self._set_score_to_selected(key)
+            # 固定採点モードでは選択されたアイテムに採点
+            if self.grading_mode == "fixed" and self.current_active_item:
+                self._set_score_to_selected(key)
+                return
+            
+            # 一つずつクリック採点モードでは通常の動作
+            elif self.grading_mode == "single" and self.selected_items:
+                self._set_score_to_selected(key)
+                return
+            
+            # 連続クリック採点モードでは数字キーでもアクティブな点数を設定する
+            elif self.grading_mode == "continuous":
+                # アクティブスコアをトグルする
+                if self.active_score == key:
+                    self.active_score = ""
+                    self.active_score_label.config(text="")
+                else:
+                    self.active_score = key
+                    self.active_score_label.config(text=f"アクティブな点数: {key}")
+                
+                # ボタンの見た目を更新
+                for btn in self.score_buttons:
+                    if btn.cget('text') == key and self.active_score:
+                        btn.config(relief=tk.SUNKEN, bg="#add8e6")  # 押された状態、青色背景
+                    else:
+                        btn.config(relief=tk.RAISED, bg="SystemButtonFace")  # 通常状態
+                return
         
         # スペースキーの場合はskip
         elif key == " ":
-            self._set_score_to_selected("skip")
+            # 固定採点モードではskipでも次に進む
+            if self.grading_mode == "fixed" and self.current_active_item:
+                self._set_score_to_selected("skip")
+            # その他のモードでは通常のskip動作
+            else:
+                self._set_score_to_selected("skip")
+        
+        # モード切り替えショートカット
+        elif key == "1":  # 1キーで一つずつクリック採点モード
+            self.mode_var.set("一つずつクリック採点")
+            self._on_mode_change()
+        elif key == "2":  # 2キーで連続クリック採点モード
+            self.mode_var.set("連続クリック採点")
+            self._on_mode_change()
+        elif key == "3":  # 3キーで固定採点モード
+            self.mode_var.set("固定採点")
+            self._on_mode_change()
     
     def _set_score_to_selected(self, score: str) -> None:
         """選択された画像に点数を設定します"""
+        # 連続クリック採点モードの場合、アクティブな点数を設定
+        if self.grading_mode == "continuous":
+            if self.active_score == score:  # 同じ点数をクリックした場合はリセット
+                self.active_score = ""
+                self.active_score_label.config(text="")
+                for btn in self.score_buttons:
+                    btn.config(relief=tk.RAISED, bg="SystemButtonFace")
+            else:  # 新しい点数を設定
+                self.active_score = score
+                self.active_score_label.config(text=f"アクティブな点数: {score}")
+                # ボタンの見た目を更新
+                for btn in self.score_buttons:
+                    if btn.cget('text') == score:
+                        btn.config(relief=tk.SUNKEN, bg="#add8e6")  # 押された状態、青色背景
+                    else:
+                        btn.config(relief=tk.RAISED, bg="SystemButtonFace")  # 通常状態
+            return
+            
+        # 固定採点モードでは選択されたアイテムに点数を設定し、次の画像に移動
+        elif self.grading_mode == "fixed" and self.current_active_item:
+            file_path = self.current_active_item
+            self.score_dict[file_path] = score
+            print(f"固定採点: {os.path.basename(file_path)} → {score}")
+            
+            # 次のアイテムを選択
+            sorted_files = self._get_sorted_files()
+            try:
+                current_idx = sorted_files.index(file_path)
+                if current_idx < len(sorted_files) - 1:
+                    next_idx = current_idx + 1
+                    self.current_active_item = sorted_files[next_idx]
+                    self.selected_items = {sorted_files[next_idx]}
+                    self.selection_info.config(text=f"選択: 1 件 (次の画像)")
+            except ValueError:
+                pass
+                
+            self._update_grid_view()
+            return
+            
+        # 一つずつクリック採点モード（デフォルト）
         if not self.selected_items:
             messagebox.showinfo("情報", "採点する画像を選択してください。")
             return
@@ -734,3 +931,30 @@ class GridGradingWindow:
     def on_closing(self) -> None:
         """ウィンドウを閉じる際の処理"""
         self.exit_grading()
+    
+    def _update_mode_hint(self) -> None:
+        """現在の採点モードに合わせてヒント表示を更新します"""
+        mode_hints = {
+            "single": "【一つずつクリック採点】まず画像を選択し、次に点数ボタンをクリックします。Ctrlキーで複数選択可能。",
+            "continuous": "【連続クリック採点】まず点数ボタンを選択してアクティブにし、その後クリックした画像すべてに同じ点数が付きます。",
+            "fixed": "【固定採点】画像を選択し、キーボードの数字キーで採点します。自動的に次の画像に移動します。"
+        }
+        
+        # モード説明フレームがなければ作成
+        if not hasattr(self, 'hint_frame'):
+            self.hint_frame = tk.Frame(self.status_frame, bg="#f0f0f0")
+            self.hint_frame.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=10)
+            
+            self.mode_hint_label = tk.Label(
+                self.hint_frame,
+                text="",
+                font=("", 9),
+                bg="#f0f0f0",
+                fg="#333333",
+                justify=tk.LEFT
+            )
+            self.mode_hint_label.pack(side=tk.RIGHT)
+            
+        # 現在のモードに合わせてヒントテキストを更新
+        if self.grading_mode in mode_hints:
+            self.mode_hint_label.config(text=mode_hints[self.grading_mode])
