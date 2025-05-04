@@ -202,6 +202,27 @@ class GridGradingWindow:
         )
         self.selection_info.pack(side=tk.RIGHT, padx=10)
         
+        # 採点進捗表示フレーム
+        self.progress_frame = tk.Frame(self.main_frame, height=30, bg="#f8f8f8")
+        self.progress_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
+        
+        self.progress_label = tk.Label(
+            self.progress_frame,
+            text="採点状況: ",
+            font=("", 9),
+            bg="#f8f8f8"
+        )
+        self.progress_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # 採点状況のカウント表示ラベル
+        self.count_label = tk.Label(
+            self.progress_frame,
+            text="",
+            font=("", 9),
+            bg="#f8f8f8"
+        )
+        self.count_label.pack(side=tk.LEFT)
+        
         # 採点モード表示のステータスバー
         self.status_frame = tk.Frame(self.main_frame, height=30, bg="#f0f0f0")
         self.status_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
@@ -222,6 +243,15 @@ class GridGradingWindow:
         )
         self.active_score_label.pack(side=tk.LEFT, padx=10)
         
+        # 複数選択ヒントラベル
+        self.selection_hint_label = tk.Label(
+            self.status_frame,
+            text="Ctrl+クリックで複数選択、Shift+クリックで範囲選択ができます",
+            font=("", 9),
+            bg="#f0f0f0"
+        )
+        self.selection_hint_label.pack(side=tk.RIGHT, padx=10)
+        
         # キャンバスフレーム（スクロール可能なグリッド表示エリア）
         self.canvas_frame = tk.Frame(self.main_frame)
         self.canvas_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
@@ -238,6 +268,11 @@ class GridGradingWindow:
         )
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.scrollbar.config(command=self.canvas.yview)
+        
+        # マウスホイールでのスクロールを有効化
+        self.canvas.bind("<MouseWheel>", self._on_mousewheel)  # Windows
+        self.canvas.bind("<Button-4>", self._on_mousewheel)    # Linux上スクロール
+        self.canvas.bind("<Button-5>", self._on_mousewheel)    # Linux下スクロール
         
         # キャンバスにグリッドフレームを配置
         self.grid_frame = tk.Frame(self.canvas, bg="white")
@@ -459,7 +494,7 @@ class GridGradingWindow:
         sorted_files = self._get_sorted_files()
         
         # グリッド表示用のフレームを設定
-        self.grid_frame.config(bg="white")
+        self.grid_frame.config(bg="#f0f0f0")  # 薄いグレーの背景
         
         # 現在の列数とサムネイルサイズを取得
         cols = self.columns
@@ -471,21 +506,72 @@ class GridGradingWindow:
             row = i // cols
             col = i % cols
             
+            # スコア取得
+            score = self._get_file_score(file_path)
+            
+            # 採点状況に応じた背景色を設定
+            if score == "":
+                # 未採点
+                bg_color = "white"
+                fg_color = "black"
+            elif score == "0":
+                # 0点は赤系の背景
+                bg_color = "#ffdddd"  # 薄い赤
+                fg_color = "black"
+            elif score == "skip":
+                # スキップはグレー
+                bg_color = "#eeeeee"
+                fg_color = "#666666"
+            else:
+                try:
+                    # 数値スコアに応じた青のグラデーション (1-9)
+                    score_val = int(score)
+                    # 明るい青から濃い青へのグラデーション (薄い順)
+                    blue_gradients = [
+                        "#e3f2fd", "#bbdefb", "#90caf9",
+                        "#64b5f6", "#42a5f5", "#2196f3", 
+                        "#1e88e5", "#1976d2", "#1565c0"
+                    ]
+                    bg_color = blue_gradients[min(score_val - 1, 8)]
+                    fg_color = "black" if score_val < 7 else "white"  # 濃い青の場合は白文字
+                except:
+                    # 数値以外の場合はデフォルト
+                    bg_color = "#e8f5e9"  # 薄い緑
+                    fg_color = "black"
+            
             # 画像フレーム
             item_frame = tk.Frame(
                 self.grid_frame,
-                width=thumb_size,
-                height=thumb_size + 30,  # 画像 + ラベル用の高さ
-                bg="white"
+                width=thumb_size + 8,  # 枠線の分を追加
+                height=thumb_size + 30 + 8,  # 画像 + ラベル用の高さ + 枠線
+                bg=bg_color,
+                bd=0,
+                highlightthickness=4,  # 枠線の太さ
+                highlightbackground=bg_color  # 通常時は背景色と同じ
             )
+            
+            # 選択状態の場合は黄色の枠線
+            if file_path in self.selected_items:
+                item_frame.config(highlightbackground="#FFD700")  # 金色/黄色の枠線
+                
+            # アクティブアイテムの場合は特別な強調
+            if file_path == self.current_active_item:
+                item_frame.config(
+                    highlightbackground="#FF8C00",  # より目立つオレンジ色
+                    highlightthickness=5  # より太い枠線
+                )
+            
             item_frame.grid(row=row, column=col, padx=5, pady=5)
             item_frame.pack_propagate(False)  # サイズを固定
+            
+            # 中身のコンテナ (背景色を設定するため)
+            content_frame = tk.Frame(item_frame, bg=bg_color)
+            content_frame.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
             
             # サムネイルの作成
             thumbnail = self._get_thumbnail(file_path, thumb_size)
             
             # 画像が採点済みかどうかをチェック
-            score = self._get_file_score(file_path)
             if score:
                 # 採点済みの場合、スコアをオーバーレイ表示
                 thumbnail = get_image_with_score_overlay(thumbnail, score)
@@ -494,12 +580,12 @@ class GridGradingWindow:
             photo = ImageTk.PhotoImage(thumbnail)
             self.tk_images[file_path] = photo
             
-            # 画像ラベル（選択状態に応じた背景色）
-            bg_color = "#add8e6" if file_path in self.selected_items else "white"
+            # 画像ラベル
             image_label = tk.Label(
-                item_frame,
+                content_frame,
                 image=photo,
-                bg=bg_color
+                bg=bg_color,
+                bd=0
             )
             image_label.pack(fill=tk.BOTH, expand=True)
             
@@ -509,9 +595,10 @@ class GridGradingWindow:
                 filename = filename[:17] + "..."
             
             file_label = tk.Label(
-                item_frame,
+                content_frame,
                 text=filename,
-                bg="white",
+                bg=bg_color,
+                fg=fg_color,
                 font=("", 8)
             )
             file_label.pack(side=tk.BOTTOM, fill=tk.X)
@@ -519,6 +606,8 @@ class GridGradingWindow:
             # 選択イベントのバインド
             image_label.bind("<Button-1>", lambda e, path=file_path: self._on_item_click(e, path))
             file_label.bind("<Button-1>", lambda e, path=file_path: self._on_item_click(e, path))
+            content_frame.bind("<Button-1>", lambda e, path=file_path: self._on_item_click(e, path))
+            item_frame.bind("<Button-1>", lambda e, path=file_path: self._on_item_click(e, path))
         
         # グリッドフレームのサイズを更新
         self.grid_frame.update_idletasks()
@@ -830,17 +919,19 @@ class GridGradingWindow:
         # グリッド表示を更新
         self._update_grid_view()
     
-    def _select_all(self) -> None:
-        """すべての画像を選択します"""
-        all_files = self._get_sorted_files()
-        self.selected_items = set(all_files)
-        self.selection_info.config(text=f"選択: {len(self.selected_items)} 件")
+    def _deselect_all(self) -> None:
+        """すべての画像の選択を解除します"""
+        self.selected_items = set()
+        self.current_active_item = None
+        self.selection_info.config(text="選択: 0 件")
         self._update_grid_view()
     
-    def _deselect_all(self) -> None:
-        """すべての選択を解除します"""
-        self.selected_items = set()
-        self.selection_info.config(text=f"選択: 0 件")
+    def _select_all(self) -> None:
+        """すべての画像を選択します"""
+        # 現在の並び順でファイルをすべて選択
+        sorted_files = self._get_sorted_files()
+        self.selected_items = set(sorted_files)
+        self.selection_info.config(text=f"選択: {len(self.selected_items)} 件")
         self._update_grid_view()
     
     def execute_grading(self) -> None:
@@ -935,7 +1026,7 @@ class GridGradingWindow:
     def _update_mode_hint(self) -> None:
         """現在の採点モードに合わせてヒント表示を更新します"""
         mode_hints = {
-            "single": "【一つずつクリック採点】まず画像を選択し、次に点数ボタンをクリックします。Ctrlキーで複数選択可能。",
+            "single": "【一つずつクリック採点】まず画像を選択し、次に点数ボタンをクリックします。Ctrl+クリックで複数選択、Shift+クリックで範囲選択ができます。",
             "continuous": "【連続クリック採点】まず点数ボタンを選択してアクティブにし、その後クリックした画像すべてに同じ点数が付きます。",
             "fixed": "【固定採点】画像を選択し、キーボードの数字キーで採点します。自動的に次の画像に移動します。"
         }
@@ -958,3 +1049,58 @@ class GridGradingWindow:
         # 現在のモードに合わせてヒントテキストを更新
         if self.grading_mode in mode_hints:
             self.mode_hint_label.config(text=mode_hints[self.grading_mode])
+            
+        # 「一つずつクリック採点」モード以外では複数選択ヒントを非表示
+        if hasattr(self, 'selection_hint_label'):
+            if self.grading_mode == "single":
+                self.selection_hint_label.pack(side=tk.RIGHT, padx=10)
+            else:
+                self.selection_hint_label.pack_forget()
+    
+    def _on_mousewheel(self, event) -> None:
+        """マウスホイールでのスクロール処理"""
+        if event.num == 5 or event.delta == -120:
+            self.canvas.yview_scroll(1, "units")
+        elif event.num == 4 or event.delta == 120:
+            self.canvas.yview_scroll(-1, "units")
+    
+    def _update_progress_info(self) -> None:
+        """採点進捗情報を更新します"""
+        # 未採点、採点済み、スキップされたファイルの数を集計
+        total_files = 0
+        graded_count = 0
+        skip_count = 0
+        
+        # 未採点ファイルと現在のセッションで採点したファイル
+        for file_path in self.image_files:
+            total_files += 1
+            score = self._get_file_score(file_path)
+            if score == "skip":
+                skip_count += 1
+            elif score:
+                graded_count += 1
+                
+        # 既に採点済みのファイル
+        for score, files in self.graded_files.items():
+            for file_path in files:
+                total_files += 1
+                if score == "skip":
+                    skip_count += 1
+                else:
+                    graded_count += 1
+        
+        # 残りの未採点ファイル数
+        ungraded_count = total_files - graded_count - skip_count
+        
+        # 進捗テキスト更新
+        progress_text = f"採点: {graded_count}枚 / スキップ: {skip_count}枚 / 未採点: {ungraded_count}枚 (合計: {total_files}枚)"
+        self.count_label.config(text=progress_text)
+        
+        # 進捗率を表示 (オプション)
+        if total_files > 0:
+            # スキップも含めた処理済み割合
+            progress_rate = (graded_count + skip_count) / total_files * 100
+            progress_info = f" - 進捗率: {progress_rate:.1f}%"
+            self.progress_label.config(text=f"採点状況: {progress_info}")
+        else:
+            self.progress_label.config(text="採点状況: ")
