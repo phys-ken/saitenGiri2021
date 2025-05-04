@@ -12,7 +12,7 @@ from ...utils.file_utils import SETTING_DIR, get_sorted_image_files
 class GradingSelectorWindow:
     """採点問題選択ウィンドウ"""
 
-    def __init__(self, parent: tk.Tk, on_question_selected: Callable[[str], None]):
+    def __init__(self, parent: tk.Tk, on_question_selected: Callable[[str, str], None]):
         """
         初期化処理
         
@@ -25,7 +25,7 @@ class GradingSelectorWindow:
         
         self.window = tk.Toplevel(parent)
         self.window.title("採点する問題を選ぶ")
-        self.window.geometry("500x500")
+        self.window.geometry("500x530")  # 高さを少し大きくして採点モード選択用のスペースを確保
         
         # リストボックスの作成
         self.listbox = tk.Listbox(self.window, selectmode='single', height=20, width=20)
@@ -48,6 +48,29 @@ class GradingSelectorWindow:
         tk.Label(button_frame, text="未採点", bg="white").pack(side=tk.TOP, fill=tk.X)
         tk.Label(button_frame, text="採点中", bg="pale green").pack(side=tk.TOP, fill=tk.X)
         tk.Label(button_frame, text="採点終了", bg="gray").pack(side=tk.TOP, fill=tk.X)
+        
+        # 採点モード選択フレーム
+        grade_mode_frame = tk.LabelFrame(self.window, text="採点モード")
+        grade_mode_frame.grid(row=1, column=0, columnspan=3, sticky=tk.W + tk.E, padx=10, pady=5)
+        
+        # 採点モードの選択（ラジオボタン）
+        self.mode_var = tk.StringVar(value="single")
+        
+        single_radio = tk.Radiobutton(
+            grade_mode_frame, 
+            text="1枚ずつ採点", 
+            variable=self.mode_var, 
+            value="single"
+        )
+        single_radio.pack(side=tk.LEFT, padx=20, pady=5)
+        
+        grid_radio = tk.Radiobutton(
+            grade_mode_frame, 
+            text="一覧採点（タイルビュー）", 
+            variable=self.mode_var, 
+            value="grid"
+        )
+        grid_radio.pack(side=tk.LEFT, padx=20, pady=5)
         
         # 採点ボタン
         tk.Button(
@@ -160,6 +183,10 @@ class GradingSelectorWindow:
             question_id = self.listbox.get(selection[0])
             print(f"選択された問題: {question_id}")
             
+            # 選択された採点モードを取得
+            grade_mode = self.mode_var.get()
+            print(f"選択された採点モード: {grade_mode}")
+            
             # 出力ディレクトリ内の問題フォルダをチェック
             question_path = os.path.join(SETTING_DIR, "output", question_id)
             if not os.path.exists(question_path):
@@ -190,9 +217,9 @@ class GradingSelectorWindow:
                 messagebox.showinfo("情報", f"問題 {question_id} には採点可能な画像がありません。")
                 return
             
-            # コールバック関数を呼び出して選択された問題IDを渡す
+            # コールバック関数を呼び出して選択された問題IDと採点モードを渡す
             if self.on_question_selected:
-                self.on_question_selected(question_id)
+                self.on_question_selected(question_id, grade_mode)
             
             # ウィンドウを閉じる
             self.window.destroy()

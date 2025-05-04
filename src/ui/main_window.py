@@ -201,10 +201,16 @@ class MainWindow:
         """採点画面を起動します"""
         from .components.grading_selector import GradingSelectorWindow
         from .components.grading_window import GradingWindow
+        from .components.grid_grading_window import GridGradingWindow
         
         # 問題選択時のコールバック関数
-        def on_question_selected(question_id):
-            GradingWindow(self.root, question_id)
+        def on_question_selected(question_id, grade_mode):
+            if grade_mode == "grid":
+                # 一覧採点モード
+                GridGradingWindow(self.root, question_id)
+            else:
+                # 1枚ずつ採点モード
+                GradingWindow(self.root, question_id)
             
         GradingSelectorWindow(self.root, on_question_selected)
     
