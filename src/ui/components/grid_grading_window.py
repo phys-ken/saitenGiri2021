@@ -2,6 +2,7 @@
 タイルビュー(グリッド)形式で採点を行うウィンドウクラス
 """
 import os
+import sys
 import shutil
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -270,9 +271,7 @@ class GridGradingWindow:
         self.scrollbar.config(command=self.canvas.yview)
         
         # マウスホイールでのスクロールを有効化
-        self.canvas.bind("<MouseWheel>", self._on_mousewheel)  # Windows
-        self.canvas.bind("<Button-4>", self._on_mousewheel)    # Linux上スクロール
-        self.canvas.bind("<Button-5>", self._on_mousewheel)    # Linux下スクロール
+        self._bind_mousewheel(self.canvas)
         
         # キャンバスにグリッドフレームを配置
         self.grid_frame = tk.Frame(self.canvas, bg="white")
@@ -1057,12 +1056,28 @@ class GridGradingWindow:
             else:
                 self.selection_hint_label.pack_forget()
     
+    def _bind_mousewheel(self, widget):
+        """マウスホイールイベントをウィジェットにバインドします"""
+        if sys.platform.startswith("win") or sys.platform == "darwin":  # Windows / macOS
+            widget.bind_all("<MouseWheel>", self._on_mousewheel, add="+")
+        else:  # Linux
+            widget.bind_all("<Button-4>", self._on_mousewheel, add="+")
+            widget.bind_all("<Button-5>", self._on_mousewheel, add="+")
+    
     def _on_mousewheel(self, event) -> None:
         """マウスホイールでのスクロール処理"""
-        if event.num == 5 or event.delta == -120:
-            self.canvas.yview_scroll(1, "units")
-        elif event.num == 4 or event.delta == 120:
-            self.canvas.yview_scroll(-1, "units")
+        # Windows環境 (event.deltaが存在する場合)
+        if hasattr(event, "delta") and event.delta:
+            step = -1 if event.delta > 0 else 1
+        # Linux環境 (num は 4↑ 5↓)
+        else:
+            step = -1 if event.num == 4 else 1
+        
+        # スクロールを実行
+        self.canvas.yview_scroll(step, "units")
+        
+        # イベントの伝播を防止
+        return "break"
     
     def _update_progress_info(self) -> None:
         """採点進捗情報を更新します"""
