@@ -4,13 +4,13 @@
 import os
 import shutil
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, Toplevel
 from PIL import Image, ImageTk
 from typing import List, Dict, Optional, Any
 
 from ...core.grader import Grader
 from ...utils.image_utils import resize_image_for_canvas
-from ...utils.file_utils import SETTING_DIR, get_sorted_image_files
+from ...utils.file_utils import SETTING_DIR, ANSWER_DATA_DIR, get_sorted_image_files
 
 
 class GradingWindow:
@@ -42,6 +42,13 @@ class GradingWindow:
         # 許可されている点数のリスト
         self.allowed_scores = []
         
+        # 模範解答関連の変数
+        self.has_sample_answer = self._check_sample_answer()
+        self.sample_window = None  # 模範解答表示ウィンドウの参照
+        self.sample_tk_img = None  # 模範解答画像の参照
+        self.sample_original_img = None  # オリジナル画像の参照（拡大縮小用）
+        self.sample_scale = 1.0  # 画像の拡大縮小率
+
         # ウィンドウの作成
         self.window = tk.Toplevel(parent)
         self.window.title("採点中...")
@@ -59,6 +66,18 @@ class GradingWindow:
         self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.window.focus_set()
         self.window.wait_window()
+    
+    def _check_sample_answer(self) -> bool:
+        """
+        模範解答が利用可能かどうか確認します
+        
+        Returns:
+            bool: 模範解答が利用可能な場合はTrue
+        """
+        # 模範解答ディレクトリと出力ディレクトリのチェック
+        answer_output_dir = os.path.join(ANSWER_DATA_DIR, "output", self.question_id)
+        return os.path.exists(answer_output_dir) and any(os.path.isfile(os.path.join(answer_output_dir, f)) 
+                                                       for f in os.listdir(answer_output_dir))
     
     def _create_ui(self) -> None:
         """UI要素を作成します"""
@@ -104,16 +123,33 @@ class GradingWindow:
         )
         self.filename_label.pack()
         
-        # 操作案内ラベル
+        # 操作案内フレーム
+        nav_frame = tk.Frame(self.main_frame)
+        nav_frame.pack(fill=tk.X, expand=True)
+        
+        # 操作案内ラベル（左）
         back_label = tk.Label(
-            self.main_frame,
+            nav_frame,
             text="←前へ\nキーボードの←ボタン",
             font=("Meiryo UI", 20)
         )
         back_label.pack(side=tk.LEFT, expand=True)
         
+        # 模範解答表示リンク
+        if self.has_sample_answer:
+            self.sample_answer_link = tk.Label(
+                nav_frame,
+                text="模範解答を表示",
+                font=("Meiryo UI", 12, "underline"),
+                fg="#0066cc",
+                cursor="hand2"
+            )
+            self.sample_answer_link.pack(side=tk.BOTTOM, pady=10)
+            self.sample_answer_link.bind("<Button-1>", self.show_sample_answer)
+        
+        # 操作案内ラベル（右）
         next_label = tk.Label(
-            self.main_frame,
+            nav_frame,
             text="次へ→\nキーボードの→ボタン",
             font=("Meiryo UI", 20)
         )
@@ -398,8 +434,232 @@ class GradingWindow:
         """採点を中断してトップ画面に戻ります"""
         ret = messagebox.askyesno('終了します', '採点を中断し、ホームに戻っても良いですか？')
         if ret:
+            # 模範解答ウィンドウが開いていれば閉じる
+            if self.sample_window and self.sample_window.winfo_exists():
+                self.sample_window.destroy()
             self.window.destroy()
     
     def on_closing(self) -> None:
         """ウィンドウを閉じる際の処理"""
+        # 模範解答ウィンドウが開いていれば閉じる
+        if self.sample_window and self.sample_window.winfo_exists():
+            self.sample_window.destroy()
         self.exit_grading()
+    
+    def show_sample_answer(self, event=None) -> None:
+        """模範解答を別ウィンドウで表示します"""
+        if not self.has_sample_answer:
+            messagebox.showinfo("情報", "この問題の模範解答は登録されていません。")
+            return
+        
+        try:
+            # すでにウィンドウが開いている場合は前面表示して終了
+            if self.sample_window and self.sample_window.winfo_exists():
+                self.sample_window.lift()
+                return
+                
+            # 模範解答画像のパスを取得
+            answer_output_dir = os.path.join(ANSWER_DATA_DIR, "output", self.question_id)
+            
+            if not os.path.exists(answer_output_dir):
+                messagebox.showinfo("情報", "模範解答が見つかりません。")
+                return
+                
+            answer_files = [os.path.join(answer_output_dir, f) for f in os.listdir(answer_output_dir) 
+                          if os.path.isfile(os.path.join(answer_output_dir, f)) and 
+                          f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
+                
+            if not answer_files:
+                messagebox.showinfo("情報", "模範解答画像が見つかりません。")
+                return
+                
+            # 画像を読み込み
+            self.sample_original_img = Image.open(answer_files[0])
+            img = self.sample_original_img.copy()
+            
+            # 画像サイズを取得（ウィンドウサイズ決定用）
+            img_width, img_height = img.size
+            
+            # 画面の解像度を取得
+            screen_width = self.window.winfo_screenwidth()
+            screen_height = self.window.winfo_screenheight()
+            
+            # 画像が大きすぎる場合はリサイズ
+            if img_width > screen_width * 0.8 or img_height > screen_height * 0.8:
+                ratio = min((screen_width * 0.8) / img_width, (screen_height * 0.8) / img_height)
+                new_width = int(img_width * ratio)
+                new_height = int(img_height * ratio)
+                img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                img_width, img_height = new_width, new_height
+                self.sample_scale = ratio  # 縮小率を保存
+            else:
+                self.sample_scale = 1.0
+            
+            # 模範解答表示ウィンドウを作成
+            self.sample_window = tk.Toplevel(self.window)
+            self.sample_window.title(f"模範解答 - {self.question_id}")
+            
+            # ウィンドウ位置を設定（親ウィンドウの隣に表示）
+            window_x = self.window.winfo_x() + self.window.winfo_width() + 10
+            window_y = self.window.winfo_y()
+            
+            # ウィンドウサイズを画像に合わせて設定（コントロールボタン用に余裕を持たせる）
+            self.sample_window.geometry(f"{img_width}x{img_height + 80}+{window_x}+{window_y}")
+            self.sample_window.minsize(300, 200)  # 最小サイズを設定
+            
+            # キャンバスフレーム
+            canvas_frame = tk.Frame(self.sample_window)
+            canvas_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # 表示用のキャンバス
+            canvas = tk.Canvas(
+                canvas_frame,
+                bg="black",
+                width=img_width,
+                height=img_height
+            )
+            canvas.pack(fill=tk.BOTH, expand=True)
+            
+            # tkinter用の画像オブジェクトに変換
+            self.sample_tk_img = ImageTk.PhotoImage(img)
+            
+            # 画像をキャンバスの中央に配置
+            self.canvas_img_id = canvas.create_image(
+                img_width // 2, 
+                img_height // 2, 
+                image=self.sample_tk_img,
+                anchor=tk.CENTER
+            )
+            
+            # ウィンドウサイズ変更イベント
+            def on_resize(event):
+                # キャンバスの中心に画像を再配置
+                canvas.coords(
+                    self.canvas_img_id, 
+                    event.width // 2,
+                    event.height // 2
+                )
+            
+            canvas.bind("<Configure>", on_resize)
+            
+            # コントロールフレーム
+            control_frame = tk.Frame(self.sample_window, height=50)
+            control_frame.pack(fill=tk.X, pady=5)
+            
+            # 拡大ボタン
+            zoom_in_btn = tk.Button(
+                control_frame,
+                text="拡大 (+)",
+                command=lambda: self._resize_sample_image(canvas, 1.2),
+                width=8
+            )
+            zoom_in_btn.pack(side=tk.LEFT, padx=10)
+            
+            # 縮小ボタン
+            zoom_out_btn = tk.Button(
+                control_frame,
+                text="縮小 (-)",
+                command=lambda: self._resize_sample_image(canvas, 0.8),
+                width=8
+            )
+            zoom_out_btn.pack(side=tk.LEFT, padx=5)
+            
+            # 元のサイズに戻すボタン
+            reset_btn = tk.Button(
+                control_frame,
+                text="リセット",
+                command=lambda: self._reset_sample_image(canvas),
+                width=8
+            )
+            reset_btn.pack(side=tk.LEFT, padx=5)
+            
+            # スケール表示
+            self.scale_var = tk.StringVar()
+            self.scale_var.set(f"倍率: {self.sample_scale:.1f}x")
+            scale_label = tk.Label(
+                control_frame,
+                textvariable=self.scale_var,
+                font=("Meiryo UI", 9)
+            )
+            scale_label.pack(side=tk.LEFT, padx=10)
+            
+            # 閉じるボタン
+            close_button = tk.Button(
+                control_frame,
+                text="閉じる",
+                command=self.sample_window.destroy,
+                width=8
+            )
+            close_button.pack(side=tk.RIGHT, padx=10)
+            
+            # 非モーダル表示（親ウィンドウも操作可能に）
+            self.sample_window.transient(self.window)
+            
+            # キーボードショートカット
+            self.sample_window.bind("<plus>", lambda e: self._resize_sample_image(canvas, 1.2))
+            self.sample_window.bind("<minus>", lambda e: self._resize_sample_image(canvas, 0.8))
+            self.sample_window.bind("<0>", lambda e: self._reset_sample_image(canvas))
+            
+        except Exception as e:
+            messagebox.showerror("エラー", f"模範解答の表示中にエラーが発生しました：{e}")
+    
+    def _resize_sample_image(self, canvas, factor: float) -> None:
+        """
+        模範解答画像のサイズを変更します
+        
+        Args:
+            canvas: 画像を表示しているキャンバス
+            factor: サイズ変更係数（1.0より大きいと拡大、小さいと縮小）
+        """
+        if self.sample_original_img is None:
+            return
+        
+        # 新しいスケールを計算
+        new_scale = self.sample_scale * factor
+        
+        # スケールが極端に小さくなりすぎないよう制限
+        if new_scale < 0.1:
+            new_scale = 0.1
+        # スケールが極端に大きくなりすぎないよう制限
+        elif new_scale > 5.0:
+            new_scale = 5.0
+            
+        # 実際のスケール変更が行われる場合のみ処理
+        if new_scale != self.sample_scale:
+            self.sample_scale = new_scale
+            
+            # オリジナル画像からリサイズ
+            orig_width, orig_height = self.sample_original_img.size
+            new_width = int(orig_width * self.sample_scale)
+            new_height = int(orig_height * self.sample_scale)
+            
+            # リサイズした画像を作成
+            resized_img = self.sample_original_img.resize(
+                (new_width, new_height), 
+                Image.Resampling.LANCZOS
+            )
+            
+            # 新しい画像をセット
+            self.sample_tk_img = ImageTk.PhotoImage(resized_img)
+            canvas.itemconfig(self.canvas_img_id, image=self.sample_tk_img)
+            
+            # スケール表示を更新
+            self.scale_var.set(f"倍率: {self.sample_scale:.1f}x")
+    
+    def _reset_sample_image(self, canvas) -> None:
+        """模範解答画像を元のサイズにリセットします"""
+        # 画面サイズを考慮した適切な初期スケールを計算
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        orig_width, orig_height = self.sample_original_img.size
+        
+        if orig_width > screen_width * 0.8 or orig_height > screen_height * 0.8:
+            # 画面の80%を超えるサイズは縮小
+            init_scale = min((screen_width * 0.8) / orig_width, (screen_height * 0.8) / orig_height)
+        else:
+            # それ以外は等倍
+            init_scale = 1.0
+            
+        # スケールを設定してリサイズ
+        self.sample_scale = init_scale
+        self._resize_sample_image(canvas, 1.0)  # 現在のスケールで再描画
