@@ -15,7 +15,7 @@ from ...utils.image_utils import (
     resize_image_by_scale, create_thumbnail_for_grid, 
     calculate_whiteness, get_image_with_score_overlay
 )
-from ...utils.file_utils import SETTING_DIR, get_sorted_image_files
+from ...utils.file_utils import SETTING_DIR, ANSWER_DATA_DIR, get_sorted_image_files
 
 # 採点モードの定義
 GradingMode = Literal["continuous", "single", "fixed"]
@@ -60,6 +60,13 @@ class GridGradingWindow:
         self.sort_mode = "filename"  # ソートモード（"filename", "score_asc", "score_desc", "whiteness"）
         self.disable_auto_sort = True  # 自動ソート無効フラグ（True: ボタンを押したときのみソート）
         
+        # 模範解答関連の変数
+        self.model_answer_window = None  # 模範解答表示用ウィンドウ
+        self.model_answer_canvas = None  # 模範解答表示用キャンバス
+        self.model_answer_image = None   # 模範解答画像
+        self.model_answer_tk_image = None  # tkinter用の模範解答画像
+        self.model_answer_zoom = 1.0     # 模範解答画像の拡大率
+        
         # ソート結果のキャッシュ
         self.sorted_files_cache = None
         self.need_resort = True  # ソートが必要かどうかのフラグ
@@ -101,15 +108,26 @@ class GridGradingWindow:
         self.control_frame_top = tk.Frame(self.main_frame)
         self.control_frame_top.pack(fill=tk.X, padx=10, pady=(10, 0))
         
+        self.control_frame_middle = tk.Frame(self.main_frame)
+        self.control_frame_middle.pack(fill=tk.X, padx=10, pady=(5, 0))
+        
         self.control_frame_bottom = tk.Frame(self.main_frame)
         self.control_frame_bottom.pack(fill=tk.X, padx=10, pady=(5, 10))
         
-        # ソート方法選択 (上段)
-        sort_label = tk.Label(self.control_frame_top, text="並び順:")
+        # タイトルラベル (最上段中央)
+        title_label = tk.Label(
+            self.control_frame_top, 
+            text=f"問題 {self.question_id} の採点", 
+            font=("", 14, "bold")
+        )
+        title_label.pack(side=tk.TOP, pady=(0, 5))
+        
+        # ソート方法選択 (中段左側)
+        sort_label = tk.Label(self.control_frame_middle, text="並び順:")
         sort_label.pack(side=tk.LEFT, padx=5)
         
         # ソートボタンフレーム
-        self.sort_buttons_frame = tk.Frame(self.control_frame_top)
+        self.sort_buttons_frame = tk.Frame(self.control_frame_middle)
         self.sort_buttons_frame.pack(side=tk.LEFT, padx=5)
         
         # ソートボタンの作成
@@ -134,22 +152,34 @@ class GridGradingWindow:
             if mode == self.sort_mode:
                 btn.config(bg="#e1e1ff")  # 現在のソートモードを強調表示
         
-        # 採点モード選択 (上段右側)
-        mode_label = tk.Label(self.control_frame_top, text="採点モード:")
-        mode_label.pack(side=tk.LEFT, padx=(20, 5))
+        # 模範解答ボタン (中段右側)
+        self.model_answer_btn = tk.Button(
+            self.control_frame_middle,
+            text="模範解答を表示",
+            command=self.show_model_answer,
+            width=15,
+            bg="#ffffe0",  # 薄い黄色
+            relief=tk.RAISED,
+            borderwidth=2
+        )
+        self.model_answer_btn.pack(side=tk.RIGHT, padx=(5, 10))
+        
+        # 採点モード選択 (中段右側、模範解答ボタンの左)
+        mode_label = tk.Label(self.control_frame_middle, text="採点モード:")
+        mode_label.pack(side=tk.RIGHT, padx=(20, 5))
         
         self.mode_var = tk.StringVar(value="一つずつクリック採点")
         mode_options = ["一つずつクリック採点", "連続クリック採点", "数字キーで連続採点"]
         
         self.mode_menu = ttk.Combobox(
-            self.control_frame_top, 
+            self.control_frame_middle, 
             textvariable=self.mode_var, 
             values=mode_options,
             state="readonly",
             width=20
         )
         self.mode_menu.current(0)
-        self.mode_menu.pack(side=tk.LEFT, padx=5)
+        self.mode_menu.pack(side=tk.RIGHT, padx=5)
         self.mode_menu.bind("<<ComboboxSelected>>", self._on_mode_change)
         
         # 画像サイズスライダー (下段左側)
@@ -1085,7 +1115,7 @@ class GridGradingWindow:
     def _on_size_change(self, event=None) -> None:
         """サムネイルサイズが変更された時の処理"""
         new_size = int(self.size_var.get())
-        if new_size != self.thumbnail_size:
+        if (new_size != self.thumbnail_size):
             self.thumbnail_size = new_size
             self.size_value_label.config(text=f"{self.thumbnail_size}px")
             self._update_grid_view()
@@ -1462,3 +1492,244 @@ class GridGradingWindow:
         
         # スクロール位置を設定（0.0-1.0の範囲）
         self.canvas.yview_moveto(max(0, min(1, scroll_position)))
+
+    def show_model_answer(self, event=None) -> None:
+        """
+        模範解答を別ウィンドウで表示します。
+        grading_windowの実装に合わせて、正しいパスから画像を探索します。
+        """
+        try:
+            # すでにウィンドウが開いている場合は前面表示して終了
+            if self.model_answer_window and self.model_answer_window.winfo_exists():
+                self.model_answer_window.lift()
+                return
+                
+            # 模範解答画像のパスを取得（正しい場所: ANSWER_DATA_DIR/output/問題ID/ 配下）
+            answer_output_dir = os.path.join(ANSWER_DATA_DIR, "output", self.question_id)
+            
+            if not os.path.exists(answer_output_dir):
+                messagebox.showinfo("情報", f"問題 {self.question_id} の模範解答ディレクトリが見つかりません。")
+                return
+                
+            # ディレクトリ内の画像ファイルを探す
+            answer_files = [os.path.join(answer_output_dir, f) for f in os.listdir(answer_output_dir) 
+                          if os.path.isfile(os.path.join(answer_output_dir, f)) and 
+                          f.lower().endswith(('.jpg', '.jpeg', '.png', '.gif'))]
+                
+            if not answer_files:
+                messagebox.showinfo("情報", f"問題 {self.question_id} の模範解答画像が見つかりません。")
+                return
+                
+            # 画像を読み込み（最初の画像を使用）
+            self.model_answer_image = Image.open(answer_files[0])
+            img = self.model_answer_image
+            
+            # ウィンドウを作成
+            self.model_answer_window = tk.Toplevel(self.window)
+            self.model_answer_window.title(f"模範解答 - {self.question_id}")
+            self.model_answer_window.protocol("WM_DELETE_WINDOW", self.close_model_answer)
+            
+            # 画面サイズを取得して、適切なウィンドウサイズを設定
+            screen_width = self.model_answer_window.winfo_screenwidth()
+            screen_height = self.model_answer_window.winfo_screenheight()
+            
+            # 画像サイズを取得
+            img_width, img_height = img.size
+            
+            # 画面サイズの80%を上限として、画像のアスペクト比を維持したウィンドウサイズを計算
+            max_width = int(screen_width * 0.8)
+            max_height = int(screen_height * 0.8)
+            
+            # 縦横比を維持したまま、最大サイズに収める
+            if img_width > max_width or img_height > max_height:
+                # 縮小が必要な場合
+                width_ratio = max_width / img_width
+                height_ratio = max_height / img_height
+                ratio = min(width_ratio, height_ratio)
+                
+                display_width = int(img_width * ratio)
+                display_height = int(img_height * ratio)
+                self.model_answer_zoom = ratio  # 拡大率を記録
+            else:
+                # 元のサイズでOK
+                display_width = img_width
+                display_height = img_height
+                self.model_answer_zoom = 1.0  # 等倍
+                
+            # ウィンドウサイズを設定（ボタンなどのUIの分少し大きく）
+            window_width = display_width
+            window_height = display_height + 40  # ボタン用の領域を追加
+            
+            # ウィンドウの位置を設定（画面中央）
+            position_x = (screen_width - window_width) // 2
+            position_y = (screen_height - window_height) // 2
+            
+            # ウィンドウのサイズと位置を設定
+            self.model_answer_window.geometry(f"{window_width}x{window_height}+{position_x}+{position_y}")
+            
+            # 操作用フレーム
+            control_frame = tk.Frame(self.model_answer_window)
+            control_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
+            
+            # 拡大・縮小ボタン
+            zoom_in_btn = tk.Button(
+                control_frame, 
+                text="拡大(+)", 
+                command=self.zoom_in_model_answer
+            )
+            zoom_in_btn.pack(side=tk.LEFT, padx=5)
+            
+            zoom_out_btn = tk.Button(
+                control_frame, 
+                text="縮小(-)", 
+                command=self.zoom_out_model_answer
+            )
+            zoom_out_btn.pack(side=tk.LEFT, padx=5)
+            
+            reset_btn = tk.Button(
+                control_frame, 
+                text="等倍表示", 
+                command=self.reset_model_answer_zoom
+            )
+            reset_btn.pack(side=tk.LEFT, padx=5)
+            
+            # 現在の表示倍率ラベル
+            self.zoom_label = tk.Label(
+                control_frame, 
+                text=f"表示倍率: {self.model_answer_zoom:.1f}x"
+            )
+            self.zoom_label.pack(side=tk.LEFT, padx=10)
+            
+            # 画像ファイル名を表示
+            file_label = tk.Label(
+                control_frame, 
+                text=f"ファイル: {os.path.basename(answer_files[0])}"
+            )
+            file_label.pack(side=tk.RIGHT, padx=10)
+            
+            # キャンバス（スクロール可能）を作成
+            canvas_frame = tk.Frame(self.model_answer_window)
+            canvas_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # 水平・垂直スクロールバー
+            h_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.HORIZONTAL)
+            h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+            
+            v_scrollbar = ttk.Scrollbar(canvas_frame, orient=tk.VERTICAL)
+            v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            # キャンバス
+            self.model_answer_canvas = tk.Canvas(
+                canvas_frame,
+                width=display_width,
+                height=display_height,
+                xscrollcommand=h_scrollbar.set,
+                yscrollcommand=v_scrollbar.set
+            )
+            self.model_answer_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            
+            # スクロールバーとキャンバスを関連付け
+            h_scrollbar.config(command=self.model_answer_canvas.xview)
+            v_scrollbar.config(command=self.model_answer_canvas.yview)
+            
+            # マウスホイールでのスクロール対応
+            self.model_answer_canvas.bind("<MouseWheel>", self._on_model_answer_mousewheel)
+            
+            # 画像を表示
+            self._update_model_answer_display()
+            
+            # 画像ウィンドウを前面に表示
+            self.model_answer_window.lift()
+            self.model_answer_window.focus_set()
+            
+            # 採点ウィンドウも引き続き操作できるように
+            self.model_answer_window.transient(self.window)
+            # grab_set()を削除し、非モーダル動作に変更
+            
+            # キーボードショートカット
+            self.model_answer_window.bind("<plus>", self.zoom_in_model_answer)
+            self.model_answer_window.bind("<minus>", self.zoom_out_model_answer)
+            self.model_answer_window.bind("<0>", self.reset_model_answer_zoom)
+            self.model_answer_window.bind("<Escape>", self.close_model_answer)
+            
+        except Exception as e:
+            print(f"模範解答画像の表示エラー: {e}")
+            messagebox.showerror("エラー", f"模範解答画像の表示中にエラーが発生しました:\n{e}")
+    
+    def _update_model_answer_display(self) -> None:
+        """
+        模範解答画像の表示を更新します。
+        """
+        if not self.model_answer_image or not self.model_answer_window or not self.model_answer_canvas:
+            return
+            
+        try:
+            # 元の画像を現在の拡大率で変更
+            img_width, img_height = self.model_answer_image.size
+            new_width = int(img_width * self.model_answer_zoom)
+            new_height = int(img_height * self.model_answer_zoom)
+            
+            # リサイズした画像を作成
+            resized_img = self.model_answer_image.resize((new_width, new_height), Image.LANCZOS)
+            
+            # tkinter用の画像オブジェクトを作成
+            self.model_answer_tk_image = ImageTk.PhotoImage(resized_img)
+            
+            # キャンバスをクリアし、新しい画像を表示
+            self.model_answer_canvas.delete("all")
+            self.model_answer_canvas.create_image(0, 0, anchor=tk.NW, image=self.model_answer_tk_image)
+            
+            # キャンバスのスクロール領域を設定
+            self.model_answer_canvas.config(scrollregion=(0, 0, new_width, new_height))
+            
+            # 拡大率表示を更新
+            if hasattr(self, 'zoom_label'):
+                self.zoom_label.config(text=f"表示倍率: {self.model_answer_zoom:.1f}x")
+            
+        except Exception as e:
+            print(f"模範解答画像の更新エラー: {e}")
+    
+    def zoom_in_model_answer(self, event=None) -> None:
+        """
+        模範解答画像を拡大します。
+        """
+        self.model_answer_zoom *= 1.2  # 20%拡大
+        self._update_model_answer_display()
+    
+    def zoom_out_model_answer(self, event=None) -> None:
+        """
+        模範解答画像を縮小します。
+        """
+        self.model_answer_zoom *= 0.8  # 20%縮小
+        self._update_model_answer_display()
+    
+    def reset_model_answer_zoom(self, event=None) -> None:
+        """
+        模範解答画像の表示倍率を等倍(1.0)にリセットします。
+        """
+        self.model_answer_zoom = 1.0
+        self._update_model_answer_display()
+    
+    def close_model_answer(self, event=None) -> None:
+        """
+        模範解答画像ウィンドウを閉じます。
+        """
+        if self.model_answer_window and self.model_answer_window.winfo_exists():
+            self.model_answer_window.destroy()
+            self.model_answer_window = None
+            self.model_answer_tk_image = None  # メモリ解放
+        
+    def _on_model_answer_mousewheel(self, event) -> None:
+        """
+        模範解答画像ウィンドウ内でのマウスホイール操作
+        """
+        if event.state & 0x0004:  # Ctrlキーが押されている場合、拡大・縮小
+            if event.delta > 0:
+                self.zoom_in_model_answer()
+            else:
+                self.zoom_out_model_answer()
+        else:  # 通常はスクロール
+            if event.state & 0x0001:  # Shiftキーが押されている場合、水平スクロール
+                self.model_answer_canvas.xview_scroll(-1 if event.delta > 0 else 1, "units")
+            else:  # 垂直スクロール
+                self.model_answer_canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
