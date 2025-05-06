@@ -1,5 +1,5 @@
 """
-タイルビュー(グリッド)形式で採点を行うウィンドウクラス
+一覧形式で採点を行うウィンドウクラス
 """
 import os
 import sys
@@ -22,7 +22,7 @@ GradingMode = Literal["continuous", "single", "fixed"]
 
 
 class GridGradingWindow:
-    """グリッド表示（タイルビュー）採点ウィンドウ"""
+    """一覧採点ウィンドウ"""
     
     def __init__(self, parent: tk.Tk, question_id: str):
         """
@@ -508,7 +508,7 @@ class GridGradingWindow:
         for widget in self.grid_frame.winfo_children():
             widget.destroy()
         
-        # tk_imagesを初期化（古い参照を削除）
+        # tk_imagesを初期化（古い参照を削除）        
         self.tk_images = {}
         
         # 現在のファイルリストを使用（ソートしない）
@@ -896,7 +896,7 @@ class GridGradingWindow:
         for widget in self.grid_frame.winfo_children():
             widget.destroy()
             
-        # キャッシュをクリア（すでに作成されたTkイメージを破棄）
+        # キャッシュをクリア（すでに作成されたTkイメージを破棄）        
         for img in self.tk_images.values():
             if img:
                 del img
@@ -1074,7 +1074,7 @@ class GridGradingWindow:
                     self.current_active_item = None
                     messagebox.showinfo("採点完了", "すべての画像の採点が完了しました。")
             
-            # グリッドを更新（採点後は自動でソートせず、現在の表示順を維持）
+            # グリッドを更新（採点後は自動でソートせず、現在の表示順を維持）            
             # _update_grid_viewを呼び出すが、need_resortフラグはFalseのまま
             self._update_grid_view()
     
