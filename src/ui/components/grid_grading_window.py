@@ -58,6 +58,11 @@ class GridGradingWindow:
         self.scale_factor = 1.0  # 画像の表示倍率
         self.columns = 4  # グリッドの列数
         self.sort_mode = "filename"  # ソートモード（"filename", "score_asc", "score_desc", "whiteness"）
+        self.disable_auto_sort = True  # 自動ソート無効フラグ（True: ボタンを押したときのみソート）
+        
+        # ソート結果のキャッシュ
+        self.sorted_files_cache = None
+        self.need_resort = True  # ソートが必要かどうかのフラグ
         
         # 採点モード関連の変数
         self.grading_mode: GradingMode = "single"  # デフォルトは「一つずつクリック採点」モード
@@ -92,82 +97,52 @@ class GridGradingWindow:
         self.main_frame = tk.Frame(self.window)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # ヘッダー(コントロールフレーム)
-        self.control_frame = tk.Frame(self.main_frame)
-        self.control_frame.pack(fill=tk.X, padx=10, pady=5)
+        # ヘッダー(コントロールフレーム) - 2行に明確に分ける
+        self.control_frame_top = tk.Frame(self.main_frame)
+        self.control_frame_top.pack(fill=tk.X, padx=10, pady=(10, 0))
         
-        # ソート方法選択
-        sort_label = tk.Label(self.control_frame, text="並び順:")
+        self.control_frame_bottom = tk.Frame(self.main_frame)
+        self.control_frame_bottom.pack(fill=tk.X, padx=10, pady=(5, 10))
+        
+        # ソート方法選択 (上段)
+        sort_label = tk.Label(self.control_frame_top, text="並び順:")
         sort_label.pack(side=tk.LEFT, padx=5)
         
-        self.sort_var = tk.StringVar(value="filename")
-        sort_options = [
+        # ソートボタンフレーム
+        self.sort_buttons_frame = tk.Frame(self.control_frame_top)
+        self.sort_buttons_frame.pack(side=tk.LEFT, padx=5)
+        
+        # ソートボタンの作成
+        sort_buttons = [
             ("ファイル名順", "filename"),
             ("点数順(昇順)", "score_asc"),
             ("点数順(降順)", "score_desc"),
             ("白さ順", "whiteness"),
         ]
         
-        self.sort_menu = ttk.Combobox(
-            self.control_frame, 
-            textvariable=self.sort_var, 
-            values=[opt[0] for opt in sort_options],
-            state="readonly",
-            width=15
-        )
-        self.sort_menu.current(0)
-        self.sort_menu.pack(side=tk.LEFT, padx=5)
-        self.sort_menu.bind("<<ComboboxSelected>>", self._on_sort_change)
+        self.sort_mode = "filename"  # デフォルトのソートモード
         
-        # 画像サイズスライダー
-        size_label = tk.Label(self.control_frame, text="表示サイズ:")
-        size_label.pack(side=tk.LEFT, padx=10)
+        for text, mode in sort_buttons:
+            btn = tk.Button(
+                self.sort_buttons_frame,
+                text=text,
+                width=10,
+                command=lambda m=mode: self._sort_by_mode(m),
+                relief=tk.RAISED if mode != self.sort_mode else tk.SUNKEN
+            )
+            btn.pack(side=tk.LEFT, padx=2)
+            if mode == self.sort_mode:
+                btn.config(bg="#e1e1ff")  # 現在のソートモードを強調表示
         
-        self.size_var = tk.DoubleVar(value=self.thumbnail_size)
-        self.size_slider = ttk.Scale(
-            self.control_frame,
-            from_=50,
-            to=300,
-            orient=tk.HORIZONTAL,
-            variable=self.size_var,
-            length=200
-        )
-        self.size_slider.pack(side=tk.LEFT, padx=5)
-        self.size_slider.bind("<ButtonRelease-1>", self._on_size_change)
-        
-        # 現在のサイズ表示ラベル
-        self.size_value_label = tk.Label(self.control_frame, text=f"{self.thumbnail_size}px")
-        self.size_value_label.pack(side=tk.LEFT, padx=5)
-        
-        # 列数設定
-        col_label = tk.Label(self.control_frame, text="列数:")
-        col_label.pack(side=tk.LEFT, padx=10)
-        
-        self.col_var = tk.IntVar(value=self.columns)
-        self.col_slider = ttk.Scale(
-            self.control_frame,
-            from_=1,
-            to=10,
-            orient=tk.HORIZONTAL,
-            variable=self.col_var,
-            length=150
-        )
-        self.col_slider.pack(side=tk.LEFT, padx=5)
-        self.col_slider.bind("<ButtonRelease-1>", self._on_column_change)
-        
-        # 現在の列数表示ラベル
-        self.col_value_label = tk.Label(self.control_frame, text=f"{self.columns}列")
-        self.col_value_label.pack(side=tk.LEFT, padx=5)
-        
-        # 採点モード選択
-        mode_label = tk.Label(self.control_frame, text="採点モード:")
-        mode_label.pack(side=tk.LEFT, padx=10)
+        # 採点モード選択 (上段右側)
+        mode_label = tk.Label(self.control_frame_top, text="採点モード:")
+        mode_label.pack(side=tk.LEFT, padx=(20, 5))
         
         self.mode_var = tk.StringVar(value="一つずつクリック採点")
-        mode_options = ["一つずつクリック採点", "連続クリック採点", "固定採点"]
+        mode_options = ["一つずつクリック採点", "連続クリック採点", "数字キーで連続採点"]
         
         self.mode_menu = ttk.Combobox(
-            self.control_frame, 
+            self.control_frame_top, 
             textvariable=self.mode_var, 
             values=mode_options,
             state="readonly",
@@ -177,31 +152,78 @@ class GridGradingWindow:
         self.mode_menu.pack(side=tk.LEFT, padx=5)
         self.mode_menu.bind("<<ComboboxSelected>>", self._on_mode_change)
         
-        # 採点ボタン
-        self.grade_button = tk.Button(
-            self.control_frame,
-            text="採点実行",
-            command=self.execute_grading,
-            width=10
-        )
-        self.grade_button.pack(side=tk.RIGHT, padx=10)
+        # 画像サイズスライダー (下段左側)
+        size_label = tk.Label(self.control_frame_bottom, text="表示サイズ:")
+        size_label.pack(side=tk.LEFT, padx=5)
         
-        # 戻るボタン
-        self.exit_button = tk.Button(
-            self.control_frame,
-            text="戻る",
-            command=self.exit_grading,
-            width=8
+        self.size_var = tk.DoubleVar(value=self.thumbnail_size)
+        self.size_slider = ttk.Scale(
+            self.control_frame_bottom,
+            from_=50,
+            to=300,
+            orient=tk.HORIZONTAL,
+            variable=self.size_var,
+            length=150
         )
-        self.exit_button.pack(side=tk.RIGHT)
+        self.size_slider.pack(side=tk.LEFT, padx=5)
+        self.size_slider.bind("<ButtonRelease-1>", self._on_size_change)
+        
+        # 現在のサイズ表示ラベル
+        self.size_value_label = tk.Label(self.control_frame_bottom, text=f"{self.thumbnail_size}px")
+        self.size_value_label.pack(side=tk.LEFT, padx=(2, 10))
+        
+        # 列数設定
+        col_label = tk.Label(self.control_frame_bottom, text="列数:")
+        col_label.pack(side=tk.LEFT)
+        
+        self.col_var = tk.IntVar(value=self.columns)
+        self.col_slider = ttk.Scale(
+            self.control_frame_bottom,
+            from_=1,
+            to=10,
+            orient=tk.HORIZONTAL,
+            variable=self.col_var,
+            length=120
+        )
+        self.col_slider.pack(side=tk.LEFT, padx=5)
+        self.col_slider.bind("<ButtonRelease-1>", self._on_column_change)
+        
+        # 現在の列数表示ラベル
+        self.col_value_label = tk.Label(self.control_frame_bottom, text=f"{self.columns}列")
+        self.col_value_label.pack(side=tk.LEFT, padx=(2, 10))
         
         # 選択情報表示ラベル
         self.selection_info = tk.Label(
-            self.control_frame,
+            self.control_frame_bottom,
             text="選択: 0 件",
-            width=15
+            width=10
         )
-        self.selection_info.pack(side=tk.RIGHT, padx=10)
+        self.selection_info.pack(side=tk.LEFT, padx=10)
+        
+        # 採点ボタン (下段右端に配置し、大きくする)
+        self.grade_button = tk.Button(
+            self.control_frame_bottom,
+            text="採点実行",
+            command=self.execute_grading,
+            width=15,  # 幅を大きく
+            height=2,   # 高さを大きく
+            font=("", 12, "bold"),  # フォントを大きく
+            bg="#4CAF50",  # 緑色の背景
+            fg="white"     # 白色の文字
+        )
+        self.grade_button.pack(side=tk.RIGHT, padx=(5, 10))
+        
+        # 戻るボタン (下段右端に配置し、少し大きくする)
+        self.exit_button = tk.Button(
+            self.control_frame_bottom,
+            text="戻る",
+            command=self.exit_grading,
+            width=10,  # 幅を大きく
+            height=2,   # 高さを少し大きく
+            font=("", 11),  # フォントを少し大きく
+            bg="#f0f0f0"
+        )
+        self.exit_button.pack(side=tk.RIGHT, padx=5)
         
         # 採点進捗表示フレーム
         self.progress_frame = tk.Frame(self.main_frame, height=30, bg="#f8f8f8")
@@ -479,7 +501,7 @@ class GridGradingWindow:
         return thumbnail
     
     def _update_grid_view(self) -> None:
-        """グリッド表示を更新します"""
+        """グリッド表示を更新します。ソートは行いません。"""
         start_time = time.time()
         
         # グリッドフレームの子ウィジェットをすべて削除
@@ -489,7 +511,7 @@ class GridGradingWindow:
         # tk_imagesを初期化（古い参照を削除）
         self.tk_images = {}
         
-        # 指定されたソート方法でファイルをソート
+        # 現在のファイルリストを使用（ソートしない）
         sorted_files = self._get_sorted_files()
         
         # グリッド表示用のフレームを設定
@@ -618,48 +640,88 @@ class GridGradingWindow:
         print(f"グリッド表示の更新: {end_time - start_time:.3f}秒")
     
     def _get_sorted_files(self) -> List[str]:
-        """現在のソートモードに従ってファイルをソートします"""
+        """
+        現在のソートモードに基づいてファイルをソートして返します。
+        ソートが必要な場合のみソートを実行し、そうでない場合はキャッシュを返します。
+        
+        Returns:
+            List[str]: ソート済みのファイルパスリスト
+        """
+        # キャッシュがあり、ソートが不要な場合はキャッシュを返す
+        if not self.need_resort and self.sorted_files_cache is not None:
+            return self.sorted_files_cache
+        
+        # 全ファイルリストを準備
         all_files = self.image_files.copy()
-        for files in self.graded_files.values():
-            all_files.extend(files)
-        
-        if self.sort_mode == "filename":
-            # ファイル名順
-            return sorted(all_files, key=lambda x: os.path.basename(x))
-        
-        elif self.sort_mode == "whiteness":
-            # 白さ順（白いものが先）
-            return sorted(all_files, key=lambda x: self.whiteness_dict.get(x, 0.0), reverse=True)
-        
-        elif self.sort_mode.startswith("score"):
-            # 点数順
-            def get_numeric_score(path):
-                score = self._get_file_score(path)
-                if score == "skip":
-                    return -1  # skipは最低点として扱う
-                try:
-                    return int(score) if score else 0
-                except:
-                    return 0
+        for score_files in self.graded_files.values():
+            all_files.extend(score_files)
             
-            reverse = self.sort_mode == "score_desc"
-            return sorted(all_files, key=get_numeric_score, reverse=reverse)
+        # ソートモードに基づいてソート
+        if self.sort_mode == "filename":
+            # ファイル名でソート
+            sorted_files = sorted(all_files, key=lambda x: os.path.basename(x))
+        elif self.sort_mode == "score_asc":
+            # スコア昇順でソート (未採点→0→1→...→9)
+            sorted_files = sorted(all_files, key=lambda x: self._get_sort_score_value(x))
+        elif self.sort_mode == "score_desc":
+            # スコア降順でソート (9→...→1→0→未採点)
+            sorted_files = sorted(all_files, key=lambda x: self._get_sort_score_value(x), reverse=True)
+        elif self.sort_mode == "whiteness":
+            # 白さでソート (白い順)
+            sorted_files = sorted(all_files, key=lambda x: self.whiteness_dict.get(x, 0.0), reverse=True)
+        else:
+            # デフォルトはファイル名でソート
+            sorted_files = sorted(all_files, key=lambda x: os.path.basename(x))
         
-        # デフォルト
-        return all_files
+        # ソート結果をキャッシュ
+        self.sorted_files_cache = sorted_files
+        self.need_resort = False
+        
+        return sorted_files
+    
+    def _get_sort_score_value(self, file_path: str) -> float:
+        """
+        ソート用のスコア値を取得
+        未採点:100, skip:50, 0-9:実際の値
+        
+        Args:
+            file_path: ファイルパス
+            
+        Returns:
+            float: ソート用のスコア値
+        """
+        score = self._get_file_score(file_path)
+        if not score:
+            return 100.0  # 未採点は最大値
+        elif score == "skip":
+            return 50.0   # skipは中間値
+        else:
+            try:
+                return float(score)  # 数値スコア
+            except ValueError:
+                return 0.0  # 数値以外は0とみなす
     
     def _get_file_score(self, file_path: str) -> str:
-        """ファイルの点数を取得します"""
-        # すでに採点データがある場合
+        """
+        ファイルのスコアを取得
+        
+        Args:
+            file_path: ファイルパス
+            
+        Returns:
+            str: スコア文字列 (未採点の場合は空文字)
+        """
+        # スコア辞書に登録されている場合
         if file_path in self.score_dict:
             return self.score_dict[file_path]
-        
-        # 採点済みフォルダにあるファイルの場合
+            
+        # 採点済みリストから探す
         for score, files in self.graded_files.items():
             if file_path in files:
                 return score
-        
-        return ""  # 未採点
+                
+        # 見つからない場合は未採点
+        return ""
     
     def _on_item_click(self, event, file_path: str) -> None:
         """画像アイテムがクリックされた時の処理"""
@@ -732,22 +794,293 @@ class GridGradingWindow:
         # グリッド表示を更新
         self._update_grid_view()
     
-    def _on_sort_change(self, event=None) -> None:
-        """ソート方法が変更された時の処理"""
-        selected_text = self.sort_menu.get()
+    def _sort_by_mode(self, mode: str) -> None:
+        """
+        指定されたモードでファイルをソートし、グリッド表示を更新します。
+        このメソッドは「並び順」ボタンが押されたときにのみ呼び出されます。
         
-        if selected_text == "ファイル名順":
-            self.sort_mode = "filename"
-        elif selected_text == "点数順(昇順)":
-            self.sort_mode = "score_asc"
-        elif selected_text == "点数順(降順)":
-            self.sort_mode = "score_desc"
-        elif selected_text == "白さ順":
-            self.sort_mode = "whiteness"
-        else:
-            self.sort_mode = "filename"  # デフォルト
+        Args:
+            mode: ソートモード ("filename", "score_asc", "score_desc", "whiteness")
+        """
+        # 前回と同じモードの場合はソート方法を変更しない
+        if mode == self.sort_mode:
+            return
+            
+        # ソートモードを更新
+        self.sort_mode = mode
+        self.need_resort = True  # ソートが必要な状態にする
+        print(f"ソートモードを {mode} に変更しました")
         
+        # ソートボタンの表示を更新
+        self._update_sort_buttons()
+        
+        # グリッド表示を更新
+        # 明示的にソートが行われるのはここだけ
         self._update_grid_view()
+        
+    def _update_sort_buttons(self) -> None:
+        """ソートボタンの状態を更新します"""
+        # ソートボタンフレーム内の全ボタンをリセット
+        for btn in self.sort_buttons_frame.winfo_children():
+            if isinstance(btn, tk.Button):
+                btn.config(relief=tk.RAISED, bg="#f0f0f0")  # デフォルト状態に戻す
+                
+        # 現在選択されているモードのボタンを強調
+        for btn in self.sort_buttons_frame.winfo_children():
+            if isinstance(btn, tk.Button):
+                # ボタンのテキストからモードを判別
+                if btn["text"] == "ファイル名順" and self.sort_mode == "filename":
+                    btn.config(relief=tk.SUNKEN, bg="#e1e1ff")
+                elif btn["text"] == "点数順(昇順)" and self.sort_mode == "score_asc":
+                    btn.config(relief=tk.SUNKEN, bg="#e1e1ff")
+                elif btn["text"] == "点数順(降順)" and self.sort_mode == "score_desc":
+                    btn.config(relief=tk.SUNKEN, bg="#e1e1ff")
+                elif btn["text"] == "白さ順" and self.sort_mode == "whiteness":
+                    btn.config(relief=tk.SUNKEN, bg="#e1e1ff")
+                    
+    def update_score(self, thumbnail_index, score):
+        """
+        採点結果を更新します
+        """
+        if thumbnail_index >= len(self.answer_thumbnails):
+            return
+        
+        thumbnail = self.answer_thumbnails[thumbnail_index]
+        old_score = thumbnail.score
+        thumbnail.score = score
+        
+        # UIを更新
+        self._update_score_label(thumbnail_index)
+        self._update_progress_label()
+        
+        # -------- 自動ソートの部分を削除 --------
+        # 自動ソートは行わず、ユーザーがソートボタンを押したときのみソートされるようにする
+        # 採点後のリアルタイムソートを無効化
+        
+        # 変更があったことを記録
+        if old_score != score:
+            self.has_changes = True
+    
+    def _sort_and_refresh_grid(self) -> None:
+        """
+        現在のソートモードに基づいて画像を並べ替え、グリッド表示を更新します
+        """
+        # ファイル名を現在のソートモードに基づいて並べ替え
+        if self.sort_mode == "filename":
+            self.filename_list.sort()
+        elif self.sort_mode == "score_asc":
+            # 点数の昇順
+            self.filename_list.sort(key=lambda f: self.score_dict.get(f, ""))
+        elif self.sort_mode == "score_desc":
+            # 点数の降順
+            self.filename_list.sort(key=lambda f: self.score_dict.get(f, ""), reverse=True)
+        elif self.sort_mode == "whiteness":
+            # 白さの値で並べ替え（昇順 - 白いものが先頭に）
+            self.filename_list.sort(key=lambda f: self.whiteness_dict.get(f, 0), reverse=True)
+        
+        # グリッドを再描画
+        self._refresh_grid()
+        
+        # 採点モードが一つずつクリック採点の場合、アクティブなアイテムを選択
+        if self.grading_mode == "single" and self.current_active_item:
+            # アクティブなアイテムがリストに存在するかチェック
+            if self.current_active_item in self.filename_list:
+                # アクティブなアイテムの位置にスクロール
+                self._scroll_to_item(self.current_active_item)
+        
+    def _refresh_grid(self) -> None:
+        """
+        グリッドビューを再描画します
+        """
+        # グリッドフレームの既存の子ウィジェットを削除
+        for widget in self.grid_frame.winfo_children():
+            widget.destroy()
+            
+        # キャッシュをクリア（すでに作成されたTkイメージを破棄）
+        for img in self.tk_images.values():
+            if img:
+                del img
+        self.tk_images = {}
+        
+        # グリッドを構築
+        row = 0
+        col = 0
+        
+        # 現在の選択状態を維持するための辞書
+        frame_dict = {}
+        
+        # ファイル名リストから完全なパスのリストを作成
+        sorted_files = self._get_sorted_files()
+        
+        for filepath in sorted_files:
+            # アイテムフレームを作成
+            item_frame = tk.Frame(
+                self.grid_frame,
+                bd=2,
+                relief=tk.RIDGE,
+                width=self.thumbnail_size + 20,
+                height=self.thumbnail_size + 40
+            )
+            item_frame.grid(
+                row=row,
+                column=col,
+                padx=5,
+                pady=5,
+                sticky=tk.NSEW
+            )
+            item_frame.grid_propagate(False)
+            
+            # サムネイル画像を取得
+            cache_key = f"{filepath}_{self.thumbnail_size}"
+            if cache_key not in self.thumbnail_cache:
+                # 画像を読み込んでからサムネイルを作成
+                img = self._get_image(filepath)
+                self.thumbnail_cache[cache_key] = create_thumbnail_for_grid(
+                    img, self.thumbnail_size
+                )
+                
+            thumbnail = self.thumbnail_cache[cache_key]
+            
+            # TkinterのPhotoImageオブジェクトを作成（参照を保持するために格納）
+            self.tk_images[filepath] = ImageTk.PhotoImage(thumbnail)
+            
+            # 画像ラベルを作成
+            img_label = tk.Label(
+                item_frame,
+                image=self.tk_images[filepath],
+                bd=0
+            )
+            img_label.pack(pady=(5, 0))
+            
+            # ファイル名ラベルの作成
+            name_label = tk.Label(
+                item_frame,
+                text=os.path.basename(filepath),
+                font=("", 8),
+                wraplength=self.thumbnail_size
+            )
+            name_label.pack(side=tk.BOTTOM, fill=tk.X, pady=0)
+            
+            # 点数ラベルを作成（もし存在すれば）
+            score = self.score_dict.get(filepath, "")
+            if score:
+                score_label = tk.Label(
+                    item_frame,
+                    text=f"点数: {score}",
+                    font=("", 9, "bold"),
+                    bg="#ffffcc",
+                    width=10
+                )
+                score_label.pack(side=tk.BOTTOM, fill=tk.X, pady=0)
+                
+            # アクティブな項目の背景色を変更
+            if self.grading_mode == "single" and filepath == self.current_active_item:
+                item_frame.config(bd=3, relief=tk.RAISED, bg="#e1e1ff")
+                
+            # 選択済みの項目の背景色を変更
+            if filepath in self.selected_items:
+                item_frame.config(bd=3, relief=tk.SUNKEN, bg="#ffe1e1")
+                
+            # クリックイベントの設定（_handle_item_clickを_on_item_clickに修正）
+            item_frame.bind("<Button-1>", lambda e, path=filepath: self._on_item_click(e, path))
+            img_label.bind("<Button-1>", lambda e, path=filepath: self._on_item_click(e, path))
+            name_label.bind("<Button-1>", lambda e, path=filepath: self._on_item_click(e, path))
+            
+            # 辞書にフレームを格納
+            frame_dict[filepath] = item_frame
+            
+            # 次の列または行に移動
+            col += 1
+            if col >= self.columns:
+                col = 0
+                row += 1
+                
+        # グリッドフレームのサイズを更新
+        self.grid_frame.update_idletasks()
+        self.canvas.config(scrollregion=self.canvas.bbox("all"))
+        
+    def _set_score_to_selected(self, score: str) -> None:
+        """
+        選択された画像に対して点数をセットします
+        
+        Args:
+            score: 設定する点数
+        """
+        # 採点モードが連続クリック採点の場合、アクティブな点数を記録
+        if self.grading_mode == "continuous":
+            self.active_score = score
+            self.active_score_label.config(text=f"設定点数: {score}")
+            # アクティブな点数ボタンの色を変更
+            for btn in self.score_buttons:
+                if btn["text"] == score:
+                    btn.config(bg="#ffcccc")  # アクティブなボタンをハイライト
+                else:
+                    btn.config(bg="#f0f0f0")  # その他のボタンを通常の色に戻す
+        
+        # 選択されているアイテムがある場合
+        if self.selected_items:
+            # 現在のソート順のファイルリストを取得（採点前）
+            sorted_files = self._get_sorted_files()
+            
+            # 選択されている各アイテムに点数をセット
+            for filepath in self.selected_items:
+                if score == "skip":
+                    # skipの場合は点数を削除
+                    if filepath in self.score_dict:
+                        del self.score_dict[filepath]
+                else:
+                    # 点数を設定
+                    self.score_dict[filepath] = score
+            
+            # 現在のアクティブアイテムと位置を記録
+            current_active = self.current_active_item
+            current_idx = -1
+            if current_active in sorted_files:
+                current_idx = sorted_files.index(current_active)
+            
+            # 選択をクリア
+            self.selected_items.clear()
+            self.selection_info.config(text="選択: 0 件")
+            
+            # 採点の進捗を更新
+            self._update_progress_info()
+            
+            # 採点モードごとの処理
+            if self.grading_mode == "single" and current_active:
+                # 一つずつクリック採点モード - 並び順を維持したまま次のアイテムをアクティブにする
+                if current_idx >= 0 and current_idx < len(sorted_files) - 1:
+                    next_idx = current_idx + 1
+                    self.current_active_item = sorted_files[next_idx]
+                    self.selected_items = {self.current_active_item}
+                    # 次のアイテムが表示されるようにスクロール
+                    self._scroll_to_item(self.current_active_item)
+                else:
+                    # インデックスが無効な場合は選択解除
+                    self.current_active_item = None
+
+            # 固定順採点モードでは次のアイテムをアクティブにする
+            elif self.grading_mode == "fixed":
+                # 現在のインデックスを更新
+                self.fixed_mode_index += 1
+                
+                # インデックスが範囲内かチェック
+                if self.fixed_mode_index < len(sorted_files):
+                    self.current_active_item = sorted_files[self.fixed_mode_index]
+                    self.selected_items = {self.current_active_item}
+                    # 次のアイテムが表示されるようにスクロール
+                    self._scroll_to_item(self.current_active_item)
+                else:
+                    # すべてのアイテムが採点済みの場合
+                    self.current_active_item = None
+                    messagebox.showinfo("採点完了", "すべての画像の採点が完了しました。")
+            
+            # グリッドを更新（採点後は自動でソートせず、現在の表示順を維持）
+            # _update_grid_viewを呼び出すが、need_resortフラグはFalseのまま
+            self._update_grid_view()
+    
+    def _on_sort_change(self, event=None) -> None:
+        """ソート方法が変更された時の処理（レガシー機能、非推奨）"""
+        pass  # 実装を無効化（ボタンに置き換え）
     
     def _on_size_change(self, event=None) -> None:
         """サムネイルサイズが変更された時の処理"""
@@ -787,17 +1120,22 @@ class GridGradingWindow:
             self.mode_status_label.config(text="現在のモード: 連続クリック採点")
             self.active_score_label.config(text="点数ボタンを選択してください")
             
-        elif selected_text == "固定採点":
+        elif selected_text == "数字キーで連続採点":
             self.grading_mode = "fixed"
-            self.mode_status_label.config(text="現在のモード: 固定採点")
-            self.active_score_label.config(text="画像を選択してから数字キーで採点")
+            self.mode_status_label.config(text="現在のモード: 数字キーで連続採点")
+            self.active_score_label.config(text="数字キーで採点すると自動的に次に進みます")
             
-            # 固定採点モードでは最初の画像が選択されている状態にする
+            # 数字キーで連続採点モードでは最初の画像が選択されている状態にする
             sorted_files = self._get_sorted_files()
             if sorted_files:
+                # インデックスをリセット
+                self.fixed_mode_index = 0
                 self.current_active_item = sorted_files[0]
                 self.selected_items = {sorted_files[0]}
                 self.selection_info.config(text="選択: 1 件 (数字キーで採点)")
+                
+                # 最初の画像が表示されるようにスクロール
+                self._scroll_to_item(self.current_active_item)
         
         # ヒント表示を更新
         self._update_mode_hint()
@@ -816,9 +1154,21 @@ class GridGradingWindow:
         
         # 数字キーの場合は採点
         if key in self.allowed_scores:
-            # 固定採点モードでは選択されたアイテムに採点
-            if self.grading_mode == "fixed" and self.current_active_item:
-                self._set_score_to_selected(key)
+            # 固定採点モードでは現在のアクティブアイテムに採点
+            if self.grading_mode == "fixed":
+                # アクティブアイテムがない場合は最初のアイテムをアクティブにする
+                if not self.current_active_item:
+                    sorted_files = self._get_sorted_files()
+                    if sorted_files:
+                        self.fixed_mode_index = 0
+                        self.current_active_item = sorted_files[0]
+                        self.selected_items = {self.current_active_item}
+                
+                # アクティブアイテムがある場合は採点
+                if self.current_active_item:
+                    print(f"数字キー採点: {os.path.basename(self.current_active_item)} → {key}")
+                    self.selected_items = {self.current_active_item}
+                    self._set_score_to_selected(key)
                 return
             
             # 一つずつクリック採点モードでは通常の動作
@@ -848,9 +1198,10 @@ class GridGradingWindow:
         elif key == " ":
             # 固定採点モードではskipでも次に進む
             if self.grading_mode == "fixed" and self.current_active_item:
+                self.selected_items = {self.current_active_item}
                 self._set_score_to_selected("skip")
             # その他のモードでは通常のskip動作
-            else:
+            elif self.selected_items:
                 self._set_score_to_selected("skip")
         
         # モード切り替えショートカット
@@ -861,62 +1212,8 @@ class GridGradingWindow:
             self.mode_var.set("連続クリック採点")
             self._on_mode_change()
         elif key == "3":  # 3キーで固定採点モード
-            self.mode_var.set("固定採点")
+            self.mode_var.set("数字キーで連続採点")
             self._on_mode_change()
-    
-    def _set_score_to_selected(self, score: str) -> None:
-        """選択された画像に点数を設定します"""
-        # 連続クリック採点モードの場合、アクティブな点数を設定
-        if self.grading_mode == "continuous":
-            if self.active_score == score:  # 同じ点数をクリックした場合はリセット
-                self.active_score = ""
-                self.active_score_label.config(text="")
-                for btn in self.score_buttons:
-                    btn.config(relief=tk.RAISED, bg="SystemButtonFace")
-            else:  # 新しい点数を設定
-                self.active_score = score
-                self.active_score_label.config(text=f"アクティブな点数: {score}")
-                # ボタンの見た目を更新
-                for btn in self.score_buttons:
-                    if btn.cget('text') == score:
-                        btn.config(relief=tk.SUNKEN, bg="#add8e6")  # 押された状態、青色背景
-                    else:
-                        btn.config(relief=tk.RAISED, bg="SystemButtonFace")  # 通常状態
-            return
-            
-        # 固定採点モードでは選択されたアイテムに点数を設定し、次の画像に移動
-        elif self.grading_mode == "fixed" and self.current_active_item:
-            file_path = self.current_active_item
-            self.score_dict[file_path] = score
-            print(f"固定採点: {os.path.basename(file_path)} → {score}")
-            
-            # 次のアイテムを選択
-            sorted_files = self._get_sorted_files()
-            try:
-                current_idx = sorted_files.index(file_path)
-                if current_idx < len(sorted_files) - 1:
-                    next_idx = current_idx + 1
-                    self.current_active_item = sorted_files[next_idx]
-                    self.selected_items = {sorted_files[next_idx]}
-                    self.selection_info.config(text=f"選択: 1 件 (次の画像)")
-            except ValueError:
-                pass
-                
-            self._update_grid_view()
-            return
-            
-        # 一つずつクリック採点モード（デフォルト）
-        if not self.selected_items:
-            messagebox.showinfo("情報", "採点する画像を選択してください。")
-            return
-        
-        # 選択されたすべての画像に点数を設定
-        for file_path in self.selected_items:
-            self.score_dict[file_path] = score
-            print(f"スコア設定: {os.path.basename(file_path)} → {score}")
-        
-        # グリッド表示を更新
-        self._update_grid_view()
     
     def _deselect_all(self) -> None:
         """すべての画像の選択を解除します"""
@@ -1027,7 +1324,7 @@ class GridGradingWindow:
         mode_hints = {
             "single": "【一つずつクリック採点】まず画像を選択し、次に点数ボタンをクリックします。Ctrl+クリックで複数選択、Shift+クリックで範囲選択ができます。",
             "continuous": "【連続クリック採点】まず点数ボタンを選択してアクティブにし、その後クリックした画像すべてに同じ点数が付きます。",
-            "fixed": "【固定採点】画像を選択し、キーボードの数字キーで採点します。自動的に次の画像に移動します。"
+            "fixed": "【数字キーで連続採点】画像を選択し、キーボードの数字キーで採点します。自動的に次の画像に移動します。"
         }
         
         # モード説明フレームがなければ作成
@@ -1119,3 +1416,49 @@ class GridGradingWindow:
             self.progress_label.config(text=f"採点状況: {progress_info}")
         else:
             self.progress_label.config(text="採点状況: ")
+    
+    def _show_continuation_dialog(self) -> bool:
+        """
+        反復処理を続行するかどうかを確認するダイアログを表示します。
+        
+        Returns:
+            bool: ユーザーが「はい」を選択した場合はTrue、それ以外の場合はFalse
+        """
+        # 反復処理確認ダイアログを表示
+        result = messagebox.askyesno(
+            "処理の確認", 
+            "反復処理を続行しますか?",
+            icon="question"
+        )
+        return result
+
+    def _scroll_to_item(self, file_path: str) -> None:
+        """
+        指定されたファイルパスに対応するアイテムが表示されるようにスクロールします。
+
+        Args:
+            file_path: スクロール先のファイルパス
+        """
+        # ファイルが存在するかチェック
+        sorted_files = self._get_sorted_files()
+        if file_path not in sorted_files:
+            return
+
+        # アイテムのインデックスを取得
+        file_index = sorted_files.index(file_path)
+        
+        # 行と列の位置を計算（グリッド内での位置）
+        row = file_index // self.columns
+        
+        # キャンバスの表示領域を計算
+        canvas_height = self.canvas.winfo_height()
+        
+        # アイテムの高さとパディングを考慮した1行の高さを計算
+        row_height = self.thumbnail_size + 40 + 10  # サムネイル + ラベル + パディング
+        
+        # スクロール位置を計算
+        # アイテムをある程度中央に表示するようにスクロール
+        scroll_position = (row * row_height) / self.grid_frame.winfo_height()
+        
+        # スクロール位置を設定（0.0-1.0の範囲）
+        self.canvas.yview_moveto(max(0, min(1, scroll_position)))
