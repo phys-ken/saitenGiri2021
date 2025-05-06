@@ -1010,17 +1010,34 @@ class OtherFeaturesWindow:
             bg="#f5f5f5",
             wraplength=450
         )
-        description.pack(pady=(0, 20))
+        description.pack(pady=(0, 10))
         
-        # 準備中メッセージ
-        preparing_label = tk.Label(
-            self.window,
-            text="現在準備中です",
-            font=("Meiryo UI", 14),
-            bg="#f5f5f5",
-            fg="#999999"
+        # 機能ボタンのコンテナフレーム
+        buttons_frame = tk.Frame(self.window, bg="#f5f5f5")
+        buttons_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # 模範解答斬り取りボタン
+        trim_answers_button = tk.Button(
+            buttons_frame,
+            text="模範解答のみ斬る",
+            command=self._trim_sample_answers,
+            width=25,
+            height=2,
+            font=("Meiryo UI", 11),
+            bg="#ffe6cc"
         )
-        preparing_label.pack(pady=40)
+        trim_answers_button.pack(pady=10)
+        
+        # 説明テキスト
+        sample_desc = tk.Label(
+            buttons_frame,
+            text="setting/answerdata フォルダに配置した模範解答画像のみを\n"
+                 "設定済みの領域定義に従って斬ります。",
+            font=("Meiryo UI", 9),
+            bg="#f5f5f5",
+            justify=tk.LEFT
+        )
+        sample_desc.pack(pady=5)
         
         # フッターフレーム
         footer_frame = tk.Frame(self.window, bg="#f5f5f5", padx=20, pady=20)
@@ -1035,3 +1052,64 @@ class OtherFeaturesWindow:
             height=1
         )
         close_button.pack(side=tk.RIGHT)
+        
+    def _trim_sample_answers(self) -> None:
+        """模範解答のみを斬る機能"""
+        from ..core.trimmer import ImageTrimmer
+        from ..utils.file_utils import SETTING_DIR, ANSWER_DATA_DIR
+        import os
+        from tkinter import messagebox
+        
+        # 初期設定確認
+        if not SETTING_DIR.exists():
+            messagebox.showerror(
+                '設定エラー', 
+                '初期設定が完了していません。まず「初期設定をする」ボタンを押してください。'
+            )
+            return
+            
+        # 切り取り定義の確認
+        trim_file = SETTING_DIR / "trimData.csv"
+        if not trim_file.exists():
+            messagebox.showerror(
+                '設定エラー', 
+                '斬り取り定義ファイルが見つかりません。'
+                'まず「どこを斬るか決める」ボタンから斬り取り範囲を設定してください。'
+            )
+            return
+            
+        # 模範解答画像の確認
+        if not ANSWER_DATA_DIR.exists() or not any(ANSWER_DATA_DIR.iterdir()):
+            messagebox.showerror(
+                '入力エラー', 
+                '「setting/answerdata」フォルダにファイルが見つかりません。'
+                'まず模範解答用の画像を配置してください。'
+            )
+            return
+            
+        # 確認ダイアログ
+        ret = messagebox.askyesno(
+            '確認', 
+            '模範解答画像を斬り取ります。\n'
+            '処理を続行しますか？\n\n'
+            '既存の斬り取り結果は上書きされます。'
+        )
+        
+        if ret:
+            # トリマーインスタンス作成
+            trimmer = ImageTrimmer(answer_dir=str(ANSWER_DATA_DIR))
+            
+            # 模範解答のみ斬る
+            success = trimmer.trim_sample_answers()
+            
+            if success:
+                messagebox.showinfo(
+                    '完了', 
+                    '模範解答画像の斬り取りが完了しました。\n'
+                    '「setting/answerdata/output」内に保存されました。'
+                )
+            else:
+                messagebox.showerror(
+                    'エラー', 
+                    '斬り取り処理中にエラーが発生しました。'
+                )

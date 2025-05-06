@@ -13,6 +13,7 @@ from pathlib import Path
 # プロジェクトルート直下のsettingディレクトリへのパス
 BASE_DIR = Path(__file__).resolve().parents[2]  # .../saitenGiri_new
 SETTING_DIR = BASE_DIR / "setting"
+ANSWER_DATA_DIR = SETTING_DIR / "answerdata"
 
 
 def resource_path(relative_path: str) -> str:
@@ -34,10 +35,11 @@ def resource_path(relative_path: str) -> str:
 
 def ensure_directories() -> None:
     """
-    settingディレクトリ以下にinput, outputを作成します
+    settingディレクトリ以下にinput, output, answerdataを作成します
     """
     (SETTING_DIR / "input").mkdir(parents=True, exist_ok=True)
     (SETTING_DIR / "output").mkdir(parents=True, exist_ok=True)
+    (SETTING_DIR / "answerdata").mkdir(parents=True, exist_ok=True)
 
 
 def initialize_csv_file() -> None:

@@ -11,7 +11,8 @@ from typing import List, Tuple, Optional, Dict, Any
 
 from ...models.answer_sheet import Region
 from ...utils.image_utils import calculate_resize_ratio, create_rectangle_with_alpha
-from ...utils.file_utils import SETTING_DIR
+from ...utils.file_utils import SETTING_DIR, ANSWER_DATA_DIR
+from ...core.trimmer import ImageTrimmer
 
 
 class TrimDefinerWindow:
@@ -40,6 +41,9 @@ class TrimDefinerWindow:
         self.tk_image = None
         self.images = []  # 透過矩形用の参照保持リスト
         
+        # 模範解答画像を使用するか確認
+        self.use_sample_answer = self._check_sample_answer()
+        
         # ウィンドウ作成
         self._create_window()
         # 既存領域を表示
@@ -47,6 +51,35 @@ class TrimDefinerWindow:
         # 定義画面を表示し続ける
         self.window.wait_window()
         
+    def _check_sample_answer(self) -> bool:
+        """
+        模範解答画像があるか確認し、使用するかを確認します
+        
+        Returns:
+            bool: 模範解答を使用する場合はTrue
+        """
+        # 模範解答ディレクトリのチェック
+        if not ANSWER_DATA_DIR.exists():
+            return False
+            
+        # 模範解答画像があるかチェック
+        sample_files = [f for f in ANSWER_DATA_DIR.iterdir() 
+                       if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif')]
+        if not sample_files:
+            return False
+            
+        # ユーザーに模範解答を使用するか確認
+        trimmer = ImageTrimmer()
+        if trimmer.has_sample_answers():
+            ret = messagebox.askyesno(
+                '模範解答画像', 
+                '模範解答画像が見つかりました。\n'
+                '斬り取り領域のプレビューに模範解答を使用しますか？\n\n'
+                '「いいえ」を選ぶと通常の解答用紙を使用します。'
+            )
+            return ret
+        return False
+    
     def _create_window(self) -> None:
         """ウィンドウを作成します"""
         # ウィンドウ設定
@@ -73,7 +106,26 @@ class TrimDefinerWindow:
         self._initialize_csv()
         
         # 画像の読み込みとリサイズ
-        self.original_image = Image.open(self.image_path)
+        if self.use_sample_answer:
+            # 模範解答画像を使用
+            sample_files = sorted([f for f in ANSWER_DATA_DIR.iterdir() 
+                               if f.is_file() and f.suffix.lower() in ('.jpg', '.jpeg', '.png', '.gif')])
+            self.original_image = Image.open(str(sample_files[0]))
+            
+            # 模範解答使用中のラベル
+            self.sample_label = tk.Label(
+                self.button_frame,
+                text="模範解答画像使用中",
+                bg="#ffe6cc",
+                fg="#333333",
+                font=("Meiryo UI", 9, "bold"),
+                padx=10,
+                pady=5
+            )
+            self.sample_label.pack(pady=(0, 10))
+        else:
+            # 通常の解答用紙を使用
+            self.original_image = Image.open(self.image_path)
         
         # リサイズ比率の計算
         self.resize_ratio = calculate_resize_ratio(
