@@ -30,7 +30,8 @@ class ExportOptionsDialog:
         # ダイアログウィンドウを作成
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("採点済み答案の出力オプション")
-        self.dialog.geometry("400x250")
+        self.dialog.geometry("500x400")  # 高さを350から400に増やして下部のボタンが表示されるようにする
+        self.dialog.minsize(500, 400)  # 最小サイズも同様に設定
         self.dialog.transient(parent)  # 親ウィンドウに対してモーダルに設定
         self.dialog.grab_set()  # モーダルモードに設定
         
@@ -51,7 +52,7 @@ class ExportOptionsDialog:
     def _create_widgets(self):
         """ダイアログのウィジェットを作成"""
         # メインフレーム
-        main_frame = ttk.Frame(self.dialog, padding="20 20 20 20")
+        main_frame = ttk.Frame(self.dialog, padding="30 20 30 20")  # 上下のパディングを調整
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # タイトルラベル
@@ -60,7 +61,7 @@ class ExportOptionsDialog:
             text="採点済み答案に表示する情報を選択してください", 
             font=("", 12, "bold")
         )
-        title_label.pack(pady=(0, 20))
+        title_label.pack(pady=(0, 15))  # 下部のパディングを調整
         
         # オプションフレーム
         options_frame = ttk.LabelFrame(main_frame, text="表示オプション")
@@ -78,7 +79,7 @@ class ExportOptionsDialog:
             variable=self.question_scores_var,
             command=self._check_selection
         )
-        question_scores_cb.pack(anchor=tk.W, padx=20, pady=5)
+        question_scores_cb.pack(anchor=tk.W, padx=30, pady=8)
         
         # 合計得点チェックボックス
         total_score_cb = ttk.Checkbutton(
@@ -87,7 +88,7 @@ class ExportOptionsDialog:
             variable=self.total_score_var,
             command=self._check_selection
         )
-        total_score_cb.pack(anchor=tk.W, padx=20, pady=5)
+        total_score_cb.pack(anchor=tk.W, padx=30, pady=8)
         
         # 〇×△マークチェックボックス
         symbols_cb = ttk.Checkbutton(
@@ -96,26 +97,36 @@ class ExportOptionsDialog:
             variable=self.symbols_var,
             command=self._check_selection
         )
-        symbols_cb.pack(anchor=tk.W, padx=20, pady=5)
+        symbols_cb.pack(anchor=tk.W, padx=30, pady=8)
+        
+        # 注意書きフレーム
+        note_frame = ttk.Frame(main_frame, relief=tk.GROOVE, borderwidth=1)
+        note_frame.pack(fill=tk.X, pady=(15, 0))
         
         # 注意書き
         note_label = ttk.Label(
-            main_frame, 
-            text="※少なくとも1つのオプションを選択してください\n※〇×△マーク機能はOpenCVライブラリが必要です",
-            foreground="gray",
-            justify=tk.LEFT
+            note_frame, 
+            text="※少なくとも1つのオプションを選択してください",
+            foreground="#555555",
+            justify=tk.LEFT,
+            padding=(10, 8)
         )
-        note_label.pack(anchor=tk.W, pady=(10, 0))
+        note_label.pack(anchor=tk.W, fill=tk.X)
         
-        # ボタンフレーム
+        # スペーサーフレーム（下部に余白を作る）
+        spacer = ttk.Frame(main_frame)
+        spacer.pack(fill=tk.BOTH, expand=True)
+        
+        # ボタンフレーム - 画面の下部に固定
         button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X, pady=(20, 0))
+        button_frame.pack(fill=tk.X, pady=(15, 0), side=tk.BOTTOM)
         
         # キャンセルボタン
         cancel_button = ttk.Button(
             button_frame, 
             text="キャンセル", 
-            command=self._on_cancel
+            command=self._on_cancel,
+            padding=(10, 5)  # ボタンのパディングを追加
         )
         cancel_button.pack(side=tk.LEFT, padx=(0, 10))
         
@@ -123,7 +134,8 @@ class ExportOptionsDialog:
         self.ok_button = ttk.Button(
             button_frame, 
             text="出力する", 
-            command=self._on_ok
+            command=self._on_ok,
+            padding=(10, 5)  # ボタンのパディングを追加
         )
         self.ok_button.pack(side=tk.RIGHT)
         
