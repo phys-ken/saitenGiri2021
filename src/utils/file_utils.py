@@ -9,9 +9,19 @@ import pathlib
 import shutil
 from typing import List, Tuple, Dict, Any, Optional
 from pathlib import Path  
-  
+
+# アプリケーションディレクトリを取得する関数
+def get_application_dir() -> Path:
+    """アプリケーションディレクトリを取得します (exe対応)"""
+    if getattr(sys, 'frozen', False):
+        # PyInstallerでビルドされた実行可能ファイルのディレクトリ
+        return Path(sys.executable).parent
+    else:
+        # 開発環境での実行
+        return Path(__file__).resolve().parents[2]  # .../saitenGiri2021
+
 # プロジェクトルート直下のsettingディレクトリへのパス
-BASE_DIR = Path(__file__).resolve().parents[2]  # .../saitenGiri_new
+BASE_DIR = get_application_dir()
 SETTING_DIR = BASE_DIR / "setting"
 ANSWER_DATA_DIR = SETTING_DIR / "answerdata"
 
@@ -26,11 +36,25 @@ def resource_path(relative_path: str) -> str:
     Returns:
         str: 解決された絶対パス
     """
-    if hasattr(sys, '_MEIPASS'):
-        base = Path(sys._MEIPASS)
-    else:
-        base = BASE_DIR
-    return str(base / relative_path)
+    try:
+        if hasattr(sys, '_MEIPASS'):
+            # PyInstallerで実行中
+            base = Path(sys._MEIPASS)
+            # リソースがある場合はそのパスを返す
+            if (base / relative_path).exists():
+                return str(base / relative_path)
+            
+        # 開発環境または_MEIPASSにファイルがない場合
+        app_dir = get_application_dir()
+        if (app_dir / relative_path).exists():
+            return str(app_dir / relative_path)
+        
+        # それでも見つからない場合、相対パスをそのまま返す
+        return relative_path
+    
+    except Exception as e:
+        print(f"リソースパスの解決中にエラー: {e}")
+        return relative_path
 
 
 def ensure_directories() -> None:
