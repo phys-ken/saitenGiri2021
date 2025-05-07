@@ -1,7 +1,4 @@
 @echo off
-echo 採点斬りアプリケーション ビルドツール
-echo =====================================
-echo.
+echo Building application...
 python build.py
-echo.
 pause

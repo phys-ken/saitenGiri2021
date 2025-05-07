@@ -8,9 +8,16 @@ import shutil
 import subprocess
 from pathlib import Path
 
+def print_title():
+    # タイトル表示（日本語）
+    print("\n")
+    print("=" * 50)
+    print("  採点斬りアプリケーション ビルドツール")
+    print("=" * 50)
+    print("\n")
+
 def main():
-    print("採点斬りアプリケーション ビルドツール")
-    print("=====================================")
+    print_title()
     
     # カレントディレクトリをプロジェクトルートに設定
     os.chdir(Path(__file__).parent)
@@ -43,18 +50,6 @@ def main():
     if result.returncode != 0:
         print("ビルド中にエラーが発生しました。")
         return 1
-    
-    # settingディレクトリをdistにコピー
-    print("settingディレクトリをコピー中...")
-    setting_src = Path("setting")
-    setting_dest = dist_dir / "setting"
-    
-    if setting_src.exists():
-        if setting_dest.exists():
-            shutil.rmtree(setting_dest)
-        shutil.copytree(setting_src, setting_dest)
-    else:
-        print("警告: settingディレクトリが見つかりません")
     
     print("\nビルドが完了しました！")
     print(f"実行ファイルの場所: {dist_dir / '採点斬り2021.exe'}")
