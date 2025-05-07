@@ -888,7 +888,7 @@ class MainWindow:
             # 出力フォルダをexportに変更
             export_dir = str(SETTING_DIR / "export")
             
-            # 確認ダイアログ
+            # 表示するオプションをリスト化（UI表示用）
             options_text = []
             if options.get('question_scores', False):
                 options_text.append("・設問ごとの得点")
@@ -896,6 +896,28 @@ class MainWindow:
                 options_text.append("・合計得点")
             if options.get('symbols', False):
                 options_text.append("・〇×△マーク")
+                
+                # 透過度情報も追加
+                transparency = options.get('transparency', 50)
+                options_text.append(f"  - 透過度: {transparency}%")
+                
+                # 得点表示位置
+                score_position = options.get('score_position', 'right')
+                position_text = '右端'
+                if score_position == 'center':
+                    position_text = 'マークの横（中央）'
+                elif score_position == 'left':
+                    position_text = '左端'
+                options_text.append(f"  - 得点表示位置: {position_text}")
+                
+                # 得点表示色
+                score_color = options.get('score_color', 'red')
+                color_text = '赤'
+                if score_color == 'same':
+                    color_text = 'マークと同じ'
+                elif score_color == 'black':
+                    color_text = '黒'
+                options_text.append(f"  - 得点表示色: {color_text}")
             
             options_str = "\n".join(options_text)
             ret = messagebox.askyesno(

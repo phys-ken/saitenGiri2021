@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Union, Tuple, Any
 
 from ..models.grade_data import GradeData, GradingSession
 from ..utils.file_utils import resource_path, get_sorted_image_files, SETTING_DIR
@@ -107,7 +107,7 @@ class AnswerMarker:
             Dict[str, Dict[str, Union[int, str]]]: {ファイル名: {問題ID: スコア}} 形式の採点データ辞書
         """
         # デフォルト値の設定
-        if output_dir is None:
+        if (output_dir is None):
             output_dir = os.path.join(os.path.dirname(os.path.dirname(self.output_dir)), "output")
             if not os.path.exists(output_dir):
                 # デフォルト設定の場合は、クラス初期化時の設定を参照
@@ -153,7 +153,7 @@ class AnswerMarker:
         
         return result
     
-    def mark_all_answer_sheets(self, options: Optional[Dict[str, bool]] = None) -> bool:
+    def mark_all_answer_sheets(self, options: Optional[Dict[str, Any]] = None) -> bool:
         """
         すべての解答用紙に採点結果を書き込みます
         
@@ -162,6 +162,9 @@ class AnswerMarker:
                 - question_scores: 設問ごとの得点表示
                 - total_score: 合計得点表示
                 - symbols: 〇×△マーク表示
+                - transparency: マークの透過度 (0-100%)
+                - score_position: 得点表示位置 ('right', 'center', 'left')
+                - score_color: 得点表示色 ('red', 'same', 'black')
         
         Returns:
             bool: 処理成功時True、失敗時False
@@ -171,11 +174,18 @@ class AnswerMarker:
             options = {
                 'question_scores': True,
                 'total_score': True,
-                'symbols': False
+                'symbols': False,
+                'transparency': 50,
+                'score_position': 'right',
+                'score_color': 'red'
             }
         
         # 1つもオプションが選択されていない場合はエラー
-        if not any(options.values()):
+        if not any([
+            options.get('question_scores', False),
+            options.get('total_score', False),
+            options.get('symbols', False)
+        ]):
             print("有効な出力オプションが選択されていません")
             return False
         
@@ -200,33 +210,448 @@ class AnswerMarker:
             print("解答用紙が存在しません")
             return False
         
-        # nameデータを見つける（最初がnameと仮定）
-        name_region = None
-        for region in regions:
-            if (region[0] == "name"):
-                name_region = region
-                break
+        # 〇×△マークを使用する場合はOpenCV版の処理を行う
+        if options.get('symbols', False):
+            return self._mark_sheets_with_opencv(image_files, regions, options)
         
-        # 採点フォントサイズを決定
-        if self.font_size is None:
-            # 最初の画像とname領域から適切なフォントサイズを計算
-            if name_region:
-                self.font_size = self._calculate_font_size(image_files[0], name_region)
+        # マークなしの場合は従来のPIL版の処理を行うが、枠は付けない
+        else:
+            return self._mark_sheets_with_pil(image_files, regions, options)
+    
+    def _mark_sheets_with_pil(self, image_files, regions, options) -> bool:
+        """
+        PILを使用して、採点結果を解答用紙に書き込みます（マークなし）
         
-        # 各解答用紙を処理
+        Args:
+            image_files: 画像ファイルのリスト
+            regions: 採点領域のリスト
+            options: 出力オプション設定
+        
+        Returns:
+            bool: 処理成功時True、失敗時False
+        """
         try:
-            for image_path in image_files:
-                self._mark_answer_sheet(image_path, regions, name_region, options)
+            # nameデータを見つける
+            name_region = None
+            for region in regions:
+                if (region[0] == "name"):
+                    name_region = region
+                    break
             
-            # 〇×△マークを付ける場合
-            if options.get('symbols', False):
-                # 採点結果付きの画像にマークを付ける
-                return self.mark_all_answer_sheets_with_symbols()
+            # 採点フォントサイズを決定
+            if self.font_size is None and name_region:
+                self.font_size = self._calculate_font_size(image_files[0], name_region)
+            if self.font_size is None:
+                self.font_size = 30  # デフォルト値
+            
+            # 各解答用紙を処理
+            for image_path in image_files:
+                filename = os.path.basename(image_path)
+                
+                # 画像を読み込む
+                img = Image.open(image_path)
+                draw = ImageDraw.Draw(img)
+                
+                # 採点用フォントを読み込む
+                try:
+                    font = ImageFont.truetype("arial.ttf", self.font_size)
+                except:
+                    try:
+                        font = ImageFont.truetype("AppleGothic.ttf", self.font_size)
+                    except:
+                        font = ImageFont.load_default()
+                
+                # 合計点を計算
+                total_score = 0
+                
+                # 設問ごとの得点を表示する場合
+                if options.get('question_scores', True):
+                    # 各領域に得点を書き込む
+                    for region in regions:
+                        tag, left, top, right, bottom = region
+                        
+                        # nameは処理しない
+                        if tag == "name":
+                            continue
+                        
+                        # 得点を取得
+                        score_text = "?"  # デフォルト値
+                        if filename in self.grades and tag in self.grades[filename]:
+                            score = self.grades[filename][tag]
+                            score_text = str(score)
+                            
+                            # skipの場合は表示しない
+                            if score_text == "skip":
+                                continue
+                            
+                            # 数値の場合は合計点に加算
+                            if isinstance(score, int):
+                                total_score += score
+                        
+                        # 得点表示位置の決定
+                        score_position = options.get('score_position', 'right')
+                        if score_position == 'right':
+                            position = (int(right - self.font_size), int(top))
+                        elif score_position == 'left':
+                            position = (int(left), int(top))
+                        else:  # center - 領域の中央
+                            position = (int((left + right) / 2 - self.font_size/2), int((top + bottom) / 2 - self.font_size/2))
+                        
+                        # 得点表示色の決定
+                        score_color_option = options.get('score_color', 'red')
+                        if score_color_option == 'red':
+                            fill_color = "red"
+                        elif score_color_option == 'black':
+                            fill_color = "black"
+                        else:  # 'same'
+                            # PILでは単純化のため赤を使用
+                            fill_color = "red"
+                        
+                        # 得点を画像に書き込む（枠なし）
+                        draw.text(position, score_text, font=font, fill=fill_color)
+                
+                # 合計点を表示する場合
+                if options.get('total_score', True) and name_region:
+                    tag, left, top, right, bottom = name_region
+                    
+                    # 得点表示位置の決定
+                    score_position = options.get('score_position', 'right')
+                    if score_position == 'right':
+                        position = (int(right - self.font_size), int(top))
+                    elif score_position == 'left':
+                        position = (int(left), int(top))
+                    else:  # center - 領域の中央
+                        position = (int((left + right) / 2 - self.font_size/2), int((top + bottom) / 2 - self.font_size/2))
+                    
+                    # 得点表示色の決定
+                    score_color_option = options.get('score_color', 'red')
+                    if score_color_option == 'red':
+                        fill_color = "red"
+                    elif score_color_option == 'black':
+                        fill_color = "black"
+                    else:  # 'same'
+                        # PILでは単純化のため赤を使用
+                        fill_color = "red"
+                    
+                    # 合計点を画像に書き込む（枠なし）
+                    draw.text(position, str(total_score), font=font, fill=fill_color)
+                
+                # 採点済み画像を保存
+                output_path = os.path.join(self.output_dir, filename)
+                img.save(output_path, quality=95)
+                print(f"{filename}の採点マークを完了しました")
             
             return True
         except Exception as e:
             print(f"採点結果書き込み中にエラーが発生しました: {e}")
             return False
+    
+    def _mark_sheets_with_opencv(self, image_files, regions, options) -> bool:
+        """
+        OpenCVを使用して、採点結果を解答用紙に書き込みます（〇×△マークあり）
+        
+        Args:
+            image_files: 画像ファイルのリスト
+            regions: 採点領域のリスト
+            options: 出力オプション設定
+        
+        Returns:
+            bool: 処理成功時True、失敗時False
+        """
+        # 領域データを辞書形式に変換
+        regions_data = []
+        name_region = None
+        
+        for region in regions:
+            tag, left, top, right, bottom = region
+            region_dict = {
+                "tag": tag,
+                "x_s": left, "y_s": top, 
+                "x_g": right, "y_g": bottom
+            }
+            regions_data.append(region_dict)
+            
+            if tag == "name":
+                name_region = region_dict
+        
+        if not regions_data:
+            print("有効な領域データがありません")
+            return False
+        
+        # 問題ID一覧を取得（nameは除外）
+        question_ids = [r["tag"] for r in regions_data if r["tag"] != "name"]
+        if not question_ids:
+            print("問題データがありません")
+            return False
+        
+        # 問題ごとの最高得点を取得
+        max_scores = self._get_max_scores()
+        print(f"各問題の最高得点: {max_scores}")
+        
+        # 文字の濃さ設定を取得（0-100）
+        concentration = options.get('transparency', 50)  # 「文字の濃さ」として解釈
+        # 範囲チェック（0〜100の範囲にする）
+        concentration = max(0, min(100, concentration))
+        
+        # OpenCVで使用する濃さの値を計算
+        # 0%（薄い）の場合はalpha=0.2（ほぼ透明）、100%（濃い）の場合はalpha=1.0（完全に不透明）
+        alpha = 0.2 + (concentration / 100.0) * 0.8
+        
+        # マーク色の設定（より鮮やかな色に変更）
+        RED_COLOR = (0, 0, 255)      # ×（RGB: #FF0000）
+        BLUE_COLOR = (255, 0, 0)     # 〇（RGB: #0000FF）
+        GREEN_COLOR = (0, 128, 0)    # △（RGB: #008000）
+        
+        # 各解答用紙を処理
+        processed_count = 0
+        for image_path in image_files:
+            filename = os.path.basename(image_path)
+            
+            # 画像を読み込む
+            img = _cv_imread(image_path)
+            if img is None:
+                print(f"{filename}の読み込みに失敗しました")
+                continue
+                
+            # マーカー用のレイヤーを作成
+            mark_overlay = img.copy()
+            
+            # 文字表示用のレイヤーを作成
+            text_overlay = img.copy()
+            
+            # 合計点を計算
+            total_score = 0
+            
+            # 各問題領域を処理
+            for region in regions_data:
+                tag = region["tag"]
+                
+                # nameは一旦スキップ（後で合計点を表示）
+                if tag == "name":
+                    continue
+                
+                # この問題について採点データを持っていない場合はスキップ
+                if filename not in self.grades or tag not in self.grades[filename]:
+                    continue
+                
+                # skipの場合はマークを付けない
+                if self.grades[filename][tag] == "skip":
+                    continue
+                
+                # 得点を取得
+                score = self.grades[filename][tag]
+                
+                # 数値の場合は合計点に加算
+                if isinstance(score, int):
+                    total_score += score
+                
+                # 領域の座標を取得
+                x_s, y_s = region["x_s"], region["y_s"]
+                x_g, y_g = region["x_g"], region["y_g"]
+                
+                # 中心座標を計算
+                x = round(x_s + (x_g - x_s) / 2)
+                y = round(y_s + (y_g - y_s) / 2)
+                
+                # マーカーサイズの決定
+                if x_g - x_s < y_g - y_s:
+                    size = (x_g - x_s) / 3
+                else:
+                    size = (y_g - y_s) / 3
+                
+                # フォントサイズをマークサイズに合わせる
+                font_size = size / 18  # マークサイズに合わせる
+                
+                # マーク色とマークの種類を決定
+                if isinstance(score, int) and options.get('symbols', False):
+                    # 問題の最高点を取得（該当問題IDがなければ0）
+                    max_score = max_scores.get(tag, 0)
+                    
+                    # 得点によってマークを判定
+                    if score == 0:
+                        # 0点の場合は×（赤）
+                        mark_color = RED_COLOR
+                        cv2.drawMarker(
+                            mark_overlay, (x, y), mark_color, 
+                            thickness=8, 
+                            markerType=cv2.MARKER_TILTED_CROSS, 
+                            markerSize=int(size)
+                        )
+                        mark_type = '×'
+                    elif score == max_score and max_score > 0:
+                        # 最高点の場合は〇（青）
+                        mark_color = BLUE_COLOR
+                        cv2.circle(
+                            mark_overlay, (x, y), int(size), 
+                            mark_color, thickness=3, 
+                            lineType=cv2.LINE_AA
+                        )
+                        mark_type = '〇'
+                    else:
+                        # 部分点の場合は△（緑）
+                        mark_color = GREEN_COLOR
+                        cv2.drawMarker(
+                            mark_overlay, (x, y), mark_color, 
+                            thickness=3, 
+                            markerType=cv2.MARKER_TRIANGLE_UP, 
+                            markerSize=int(size)
+                        )
+                        mark_type = '△'
+                else:
+                    # マークなしの場合
+                    mark_color = RED_COLOR  # デフォルト赤
+                    mark_type = None
+                
+                # 得点を表示する場合（×(0点)の場合は表示しない）
+                if options.get('question_scores', True) and isinstance(score, int) and score > 0:
+                    # 得点表示色の決定
+                    score_color_option = options.get('score_color', 'red')
+                    if score_color_option == 'red':
+                        score_color = RED_COLOR
+                    elif score_color_option == 'same' and options.get('symbols', False):
+                        score_color = mark_color  # マークと同じ色
+                    else:  # 'black'または'same'でマークなしの場合
+                        score_color = (0, 0, 0)  # 黒
+                    
+                    score_text = str(score)
+                    text_size = cv2.getTextSize(score_text, cv2.FONT_HERSHEY_SIMPLEX, font_size, 2)[0]
+                    
+                    # 得点表示位置の決定
+                    score_position = options.get('score_position', 'right')
+                    if score_position == 'right':
+                        text_x = x_g - text_size[0] - 5
+                        text_y = y_s + text_size[1] + 5
+                    elif score_position == 'left':
+                        text_x = x_s + 5
+                        text_y = y_s + text_size[1] + 5
+                    else:  # 'center' - マークの横または中央
+                        if mark_type and options.get('symbols', False):
+                            # マークありの場合はマークの横に配置
+                            text_x = x + int(size) + 5
+                            text_y = y + int(text_size[1]/3)
+                        else:
+                            # マークなしの場合は中央に配置
+                            text_x = x - int(text_size[0]/2)
+                            text_y = y + int(text_size[1]/3)
+                    
+                    # 得点テキストを描画（文字表示用レイヤーに）
+                    cv2.putText(
+                        text_overlay, score_text, 
+                        (text_x, text_y),
+                        cv2.FONT_HERSHEY_SIMPLEX, 
+                        font_size, score_color, 2, 
+                        cv2.LINE_AA
+                    )
+            
+            # 合計点を表示する場合
+            if options.get('total_score', True) and name_region and total_score > 0:
+                x_s, y_s = name_region["x_s"], name_region["y_s"]
+                x_g, y_g = name_region["x_g"], name_region["y_g"]
+                
+                # 氏名欄の高さを計算
+                name_height = y_g - y_s
+                
+                # 合計点のフォントサイズは氏名欄の高さに基づいて設定（調整係数を適用）
+                font_size = name_height / 25  # 氏名欄の高さに合わせる
+                
+                # 表示位置は常に氏名欄の右端
+                total_text = str(total_score)
+                text_size = cv2.getTextSize(total_text, cv2.FONT_HERSHEY_SIMPLEX, font_size, 2)[0]
+                
+                # 右端の位置を計算
+                text_x = x_g - text_size[0] - 5
+                text_y = y_s + text_size[1] + 5
+                
+                # 得点表示色の決定（合計点はデフォルトで赤または黒）
+                score_color_option = options.get('score_color', 'red')
+                if score_color_option == 'red':
+                    score_color = RED_COLOR
+                elif score_color_option == 'black':
+                    score_color = (0, 0, 0)  # 黒
+                else:  # 'same'の場合は青を使用（合計点は特別扱い）
+                    score_color = BLUE_COLOR
+                
+                # 合計点テキストを描画（文字表示用レイヤーに）
+                cv2.putText(
+                    text_overlay, total_text, 
+                    (text_x, text_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 
+                    font_size, score_color, 2, 
+                    cv2.LINE_AA
+                )
+            
+            result_img = None
+            
+            # 背景画像のコピーを作成（最終結果用）
+            result_img = img.copy()
+            
+            # マークの描画（マーク表示がある場合のみ）
+            if options.get('symbols', False):
+                if concentration == 100:
+                    # 濃さ100%（完全に濃い）の場合は透過せず直接マークを上書き
+                    # マークをブレンドせずに配置
+                    mask = cv2.cvtColor(mark_overlay, cv2.COLOR_BGR2GRAY)
+                    _, binary_mask = cv2.threshold(mask, 254, 255, cv2.THRESH_BINARY_INV)
+                    # マーク部分だけを抽出
+                    mark_diff = cv2.bitwise_xor(img, mark_overlay)
+                    # マスクを使って元画像にマークを追加
+                    idx = (binary_mask != 0)
+                    result_img[idx] = mark_overlay[idx]
+                else:
+                    # 通常の透過処理（濃さに応じてブレンド）
+                    # alphaは文字の濃さに応じて調整（0.2〜1.0の範囲）
+                    # マークを描画
+                    mark_diff = cv2.absdiff(img, mark_overlay)
+                    mark_mask = cv2.cvtColor(mark_diff, cv2.COLOR_BGR2GRAY)
+                    _, mark_mask = cv2.threshold(mark_mask, 5, 255, cv2.THRESH_BINARY)
+                    mark_mask_inv = cv2.bitwise_not(mark_mask)
+                    
+                    # 背景部分
+                    bg = cv2.bitwise_and(result_img, result_img, mask=mark_mask_inv)
+                    # マーク部分（濃さに応じて元画像とブレンド）
+                    fg = cv2.addWeighted(mark_overlay, alpha, img, 1.0 - alpha, 0)
+                    fg = cv2.bitwise_and(fg, fg, mask=mark_mask)
+                    
+                    # 合成
+                    result_img = cv2.add(bg, fg)
+            
+            # 文字の描画（常に行う）
+            if concentration == 100:
+                # 濃さ100%の場合は透過せず直接上書き
+                # 文字部分のマスクを作成
+                text_diff = cv2.absdiff(img, text_overlay)
+                text_mask = cv2.cvtColor(text_diff, cv2.COLOR_BGR2GRAY)
+                _, text_mask = cv2.threshold(text_mask, 5, 255, cv2.THRESH_BINARY)
+                
+                # マスクを使って文字を上書き
+                result_img[text_mask > 0] = text_overlay[text_mask > 0]
+            else:
+                # 通常の透過処理（濃さに応じてブレンド）
+                # 文字部分だけを抽出
+                text_diff = cv2.absdiff(img, text_overlay)
+                text_mask = cv2.cvtColor(text_diff, cv2.COLOR_BGR2GRAY)
+                _, text_mask = cv2.threshold(text_mask, 5, 255, cv2.THRESH_BINARY)
+                text_mask_inv = cv2.bitwise_not(text_mask)
+                
+                # 背景部分
+                bg = cv2.bitwise_and(result_img, result_img, mask=text_mask_inv)
+                # 文字部分（濃さに応じてブレンド）
+                fg = cv2.addWeighted(text_overlay, alpha, img, 1.0 - alpha, 0)
+                fg = cv2.bitwise_and(fg, fg, mask=text_mask)
+                
+                # 合成
+                result_img = cv2.add(bg, fg)
+            
+            # マーク付き画像を保存
+            output_path = os.path.join(self.output_dir, filename)
+            if _cv_imwrite(output_path, result_img):
+                print(f"{filename}の処理を完了しました")
+                processed_count += 1
+            else:
+                print(f"{filename}の保存に失敗しました")
+        
+        print(f"合計{processed_count}個の画像を処理しました")
+        return processed_count > 0
     
     def _calculate_font_size(self, image_path: str, name_region: Tuple) -> int:
         """
@@ -254,83 +679,6 @@ class AnswerMarker:
             # エラー時はデフォルト値を返す
             return 30
     
-    def _mark_answer_sheet(self, image_path: str, regions: List[Tuple], 
-                          name_region: Optional[Tuple], 
-                          options: Dict[str, bool]) -> None:
-        """
-        1つの解答用紙に採点結果を書き込みます
-        
-        Args:
-            image_path: 解答用紙の画像パス
-            regions: 採点領域のリスト
-            name_region: 名前領域データ（合計点表示用）
-            options: 出力オプション設定
-        """
-        filename = os.path.basename(image_path)
-        
-        # 画像を読み込む
-        img = Image.open(image_path)
-        draw = ImageDraw.Draw(img)
-        
-        # 採点用フォントを読み込む
-        try:
-            font = ImageFont.truetype("arial.ttf", self.font_size)
-        except:
-            try:
-                font = ImageFont.truetype("AppleGothic.ttf", self.font_size)
-            except:
-                font = ImageFont.load_default()
-        
-        # 合計点を計算
-        total_score = 0
-        
-        # 設問ごとの得点を表示する場合
-        if options.get('question_scores', True):
-            # 各領域に得点を書き込む
-            for region in regions:
-                tag, left, top, right, bottom = region
-                
-                # nameは処理しない
-                if tag == "name":
-                    continue
-                
-                # 得点を取得
-                score_text = "?"  # デフォルト値
-                if filename in self.grades and tag in self.grades[filename]:
-                    score = self.grades[filename][tag]
-                    score_text = str(score)
-                    
-                    # skipの場合は表示しない
-                    if score_text == "skip":
-                        continue
-                    
-                    # 数値の場合は合計点に加算
-                    if isinstance(score, int):
-                        total_score += score
-                
-                # 得点を画像に書き込む
-                position = (int(right - self.font_size/2), int(top))
-                draw.text(position, score_text, font=font, fill="red")
-                draw.rectangle(
-                    (position[0], position[1], position[0] + self.font_size, position[1] + self.font_size),
-                    outline="red"
-                )
-        
-        # 合計点を表示する場合
-        if options.get('total_score', True) and name_region:
-            _, left, top, right, bottom = name_region
-            position = (int(right - self.font_size/2), int(top))
-            draw.text(position, str(total_score), font=font, fill="red")
-            draw.rectangle(
-                (position[0], position[1], position[0] + self.font_size*1.5, position[1] + self.font_size),
-                outline="red"
-            )
-        
-        # 採点済み画像を保存
-        output_path = os.path.join(self.output_dir, filename)
-        img.save(output_path, quality=95)
-        print(f"{filename}の採点マークを完了しました")
-        
     def launch_external_marker(self, image_path: str) -> bool:
         """
         外部の○×マーカーを起動します（marubatu.exeの機能）
@@ -352,13 +700,27 @@ class AnswerMarker:
             print(f"マーカー起動中にエラーが発生しました: {e}")
             return False
 
-    def mark_all_answer_sheets_with_symbols(self) -> bool:
+    def mark_all_answer_sheets_with_symbols(self, options: Optional[Dict[str, Any]] = None) -> bool:
         """
         すべての解答用紙に〇×△マークを書き込みます
+        
+        Args:
+            options: 出力オプション設定
+                - transparency: マークの透過度 (0-100%)
+                - score_position: 得点表示位置 ('right', 'center', 'left')
+                - score_color: 得点表示色 ('red', 'same', 'black')
         
         Returns:
             bool: 処理成功時True、失敗時False
         """
+        # オプション初期値の設定
+        if options is None:
+            options = {
+                'transparency': 50,  # デフォルト50%
+                'score_position': 'right',  # デフォルト右端
+                'score_color': 'red'  # デフォルト赤
+            }
+            
         # 採点済み画像ディレクトリの存在確認
         if not os.path.exists(self.output_dir):
             print(f"採点済み画像フォルダが存在しません: {self.output_dir}")
@@ -417,6 +779,17 @@ class AnswerMarker:
             print("採点データが見つかりません")
             return False
         
+        # 問題ごとの最高得点を取得
+        max_scores = self._get_max_scores()
+        print(f"各問題の最高得点: {max_scores}")
+        
+        # 透過度設定の取得
+        transparency = options.get('transparency', 50)
+        # 透過度の範囲チェック（0〜100の範囲にする）
+        transparency = max(0, min(100, transparency))
+        # OpenCVで使用する透明度に変換（0〜1）
+        alpha = 1 - (transparency / 100)
+        
         # 各採点済み画像にマークを付ける
         processed_count = 0
         for img_path in image_files:
@@ -427,6 +800,9 @@ class AnswerMarker:
             if img is None:
                 print(f"{filename}の読み込みに失敗しました")
                 continue
+            
+            # 透過処理用にマーク用の透明レイヤーを作成
+            overlay = img.copy()
                 
             # 各問題領域にマークを付ける
             for region in regions_data:
@@ -445,7 +821,7 @@ class AnswerMarker:
                     
                 # 領域の座標を取得
                 x_s, y_s = region["x_s"], region["y_s"]
-                x_g, y_g = region["x_g"], region["y_g"]
+                x_g, y_g = region["x_g"], y_g
                 
                 # 中心座標を計算
                 x = round(x_s + (x_g - x_s) / 2)
@@ -457,32 +833,92 @@ class AnswerMarker:
                 else:
                     size = (y_g - y_s) / 3
                 
-                # 採点結果を取得して〇×△マークを判定
+                # 最小解答欄の高さを得点表示のフォントサイズとして使用
+                font_size = int(size * 0.8)
+                
+                # 採点結果を取得
                 score = self.grades[filename][tag]
+                
+                # マーク色とマークの種類を決定
                 if isinstance(score, int):
+                    # 問題の最高点を取得（該当問題IDがなければ0）
+                    max_score = max_scores.get(tag, 0)
+                    
+                    # 得点によってマークを判定
                     if score == 0:
-                        # 0点の場合は×
-                        img = cv2.drawMarker(
-                            img, (x, y), (0, 0, 255), 
+                        # 0点の場合は×（赤）
+                        mark_color = (0, 0, 255)  # 赤（BGR形式）
+                        cv2.drawMarker(
+                            overlay, (x, y), mark_color, 
                             thickness=8, 
                             markerType=cv2.MARKER_TILTED_CROSS, 
                             markerSize=int(size)
                         )
-                    elif score == 3:  # 満点と仮定
-                        # 満点の場合は〇
-                        img = cv2.circle(
-                            img, (x, y), int(size), 
-                            (0, 0, 255), thickness=3, 
+                        mark_type = '×'
+                    elif score == max_score:
+                        # 最高点の場合は〇（青）
+                        mark_color = (255, 0, 0)  # 青（BGR形式）
+                        cv2.circle(
+                            overlay, (x, y), int(size), 
+                            mark_color, thickness=3, 
                             lineType=cv2.LINE_AA
                         )
+                        mark_type = '〇'
                     else:
-                        # 部分点の場合は△
-                        img = cv2.drawMarker(
-                            img, (x, y), (0, 0, 255), 
+                        # 部分点の場合は△（緑）
+                        mark_color = (0, 255, 0)  # 緑（BGR形式）
+                        cv2.drawMarker(
+                            overlay, (x, y), mark_color, 
                             thickness=3, 
                             markerType=cv2.MARKER_TRIANGLE_UP, 
                             markerSize=int(size)
                         )
+                        mark_type = '△'
+                    
+                    # 得点表示位置の決定
+                    score_position = options.get('score_position', 'right')
+                    
+                    # 得点を表示する場合
+                    if options.get('question_scores', True):
+                        # 得点表示色の決定
+                        score_color_option = options.get('score_color', 'red')
+                        if score_color_option == 'red':
+                            score_color = (0, 0, 255)  # 赤
+                        elif score_color_option == 'same':
+                            score_color = mark_color  # マークと同じ色
+                        else:  # 'black'
+                            score_color = (0, 0, 0)  # 黒
+                        
+                        score_text = str(score)
+                        text_size = cv2.getTextSize(score_text, cv2.FONT_HERSHEY_SIMPLEX, font_size/30, 2)[0]
+                        
+                        # 位置に応じて座標を設定
+                        if score_position == 'right':
+                            text_x = x_g - text_size[0] - 5
+                            text_y = y_s + text_size[1] + 5
+                        elif score_position == 'left':
+                            text_x = x_s + 5
+                            text_y = y_s + text_size[1] + 5
+                        else:  # 'center' - マークの横
+                            if mark_type in ['〇', '×']:
+                                # マークがある場合はマークの横に配置
+                                text_x = x + int(size) + 5
+                                text_y = y + int(text_size[1]/2)
+                            else:
+                                # マークがない場合は中央に配置
+                                text_x = x - int(text_size[0]/2)
+                                text_y = y + int(text_size[1]/2)
+                        
+                        # 得点テキストを描画（透過処理は行わない）
+                        cv2.putText(
+                            img, score_text, 
+                            (text_x, text_y),
+                            cv2.FONT_HERSHEY_SIMPLEX, 
+                            font_size/30, score_color, 2
+                        )
+            
+            # オーバーレイの透過合成
+            cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
             
             # マーク付き画像を保存
             output_path = img_path  # 同じ場所に上書き保存
@@ -494,3 +930,42 @@ class AnswerMarker:
         
         print(f"合計{processed_count}個の画像に〇×△マークを付けました")
         return processed_count > 0
+        
+    def _get_max_scores(self) -> Dict[str, int]:
+        """
+        問題ごとの最高得点を取得します
+        
+        Returns:
+            Dict[str, int]: {問題ID: 最高得点}の辞書
+        """
+        max_scores = {}
+        
+        # setting/outputディレクトリパスの取得
+        output_dir = os.path.join(os.path.dirname(os.path.dirname(self.output_dir)), "output")
+        if not os.path.exists(output_dir):
+            output_dir = str(SETTING_DIR / "output")
+            
+        if not os.path.exists(output_dir):
+            return max_scores
+            
+        # 問題フォルダを取得（nameフォルダは除外）
+        question_dirs = [d for d in os.listdir(output_dir)
+                         if os.path.isdir(os.path.join(output_dir, d)) and d != "name"]
+                         
+        for question_id in question_dirs:
+            question_dir = os.path.join(output_dir, question_id)
+            
+            # 各スコアフォルダを処理
+            score_dirs = [d for d in os.listdir(question_dir)
+                          if os.path.isdir(os.path.join(question_dir, d))]
+            
+            # スコアフォルダから数値のみを抽出して最大値を取得
+            numeric_scores = []
+            for score_dir in score_dirs:
+                if score_dir.isdigit():
+                    numeric_scores.append(int(score_dir))
+            
+            if numeric_scores:
+                max_scores[question_id] = max(numeric_scores)
+                
+        return max_scores
