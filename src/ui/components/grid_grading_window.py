@@ -1343,10 +1343,14 @@ class GridGradingWindow:
             if not ret:
                 return
         
+        # 模範解答ウィンドウが開いていれば閉じる
+        self.close_model_answer()
         self.window.destroy()
     
     def on_closing(self) -> None:
         """ウィンドウを閉じる際の処理"""
+        # 模範解答ウィンドウが開いていれば閉じる
+        self.close_model_answer()
         self.exit_grading()
     
     def _update_mode_hint(self) -> None:
@@ -1385,24 +1389,36 @@ class GridGradingWindow:
     
     def _bind_mousewheel(self, widget):
         """マウスホイールイベントをウィジェットにバインドします"""
-        if sys.platform.startswith("win") or sys.platform == "darwin":  # Windows / macOS
-            widget.bind_all("<MouseWheel>", self._on_mousewheel, add="+")
-        else:  # Linux
-            widget.bind_all("<Button-4>", self._on_mousewheel, add="+")
-            widget.bind_all("<Button-5>", self._on_mousewheel, add="+")
+        try:
+            # グローバルバインドに戻す - これが動作する方法
+            if sys.platform.startswith("win") or sys.platform == "darwin":  # Windows / macOS
+                widget.bind_all("<MouseWheel>", self._on_mousewheel, add="+")
+            else:  # Linux
+                widget.bind_all("<Button-4>", self._on_mousewheel, add="+")
+                widget.bind_all("<Button-5>", self._on_mousewheel, add="+")
+        except Exception as e:
+            print(f"マウスホイールバインドエラー（無視します）: {e}")
     
     def _on_mousewheel(self, event) -> None:
         """マウスホイールでのスクロール処理"""
-        # Windows環境 (event.deltaが存在する場合)
-        if hasattr(event, "delta") and event.delta:
-            step = -1 if event.delta > 0 else 1
-        # Linux環境 (num は 4↑ 5↓)
-        else:
-            step = -1 if event.num == 4 else 1
-        
-        # スクロールを実行
-        self.canvas.yview_scroll(step, "units")
-        
+        try:
+            # キャンバスが存在し、有効かチェック
+            if not hasattr(self, 'canvas') or not self.canvas or not self.canvas.winfo_exists():
+                return "break"  # 破棄済みなら何もしない
+            
+            # Windows環境 (event.deltaが存在する場合)
+            if hasattr(event, "delta") and event.delta:
+                step = -1 if event.delta > 0 else 1
+            # Linux環境 (num は 4↑ 5↓)
+            else:
+                step = -1 if getattr(event, "num", 0) == 4 else 1
+            
+            # スクロールを実行
+            self.canvas.yview_scroll(step, "units")
+        except Exception:
+            # エラーを表示せずに静かに失敗
+            pass
+            
         # イベントの伝播を防止
         return "break"
     
@@ -1632,8 +1648,11 @@ class GridGradingWindow:
             h_scrollbar.config(command=self.model_answer_canvas.xview)
             v_scrollbar.config(command=self.model_answer_canvas.yview)
             
-            # マウスホイールでのスクロール対応
+            # マウスホイールでのスクロール対応 - ローカルバインドに変更
             self.model_answer_canvas.bind("<MouseWheel>", self._on_model_answer_mousewheel)
+            if not sys.platform.startswith("win"):  # Linux用
+                self.model_answer_canvas.bind("<Button-4>", self._on_model_answer_mousewheel)
+                self.model_answer_canvas.bind("<Button-5>", self._on_model_answer_mousewheel)
             
             # 画像を表示
             self._update_model_answer_display()
@@ -1723,13 +1742,27 @@ class GridGradingWindow:
         """
         模範解答画像ウィンドウ内でのマウスホイール操作
         """
+        # キャンバスが存在し、有効かチェック
+        if not (self.model_answer_canvas and self.model_answer_canvas.winfo_exists()):
+            return "break"  # 破棄済みなら何もしない
+            
+        # マウスホイールの方向を判定
+        if hasattr(event, "delta"):  # Windowsの場合
+            delta = event.delta
+            step = -1 if delta > 0 else 1
+        else:  # Linuxの場合
+            num = getattr(event, "num", 0)
+            step = -1 if num == 4 else 1
+            
         if event.state & 0x0004:  # Ctrlキーが押されている場合、拡大・縮小
-            if event.delta > 0:
+            if step < 0:  # 上方向スクロール
                 self.zoom_in_model_answer()
-            else:
+            else:  # 下方向スクロール
                 self.zoom_out_model_answer()
         else:  # 通常はスクロール
             if event.state & 0x0001:  # Shiftキーが押されている場合、水平スクロール
-                self.model_answer_canvas.xview_scroll(-1 if event.delta > 0 else 1, "units")
+                self.model_answer_canvas.xview_scroll(step, "units")
             else:  # 垂直スクロール
-                self.model_answer_canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
+                self.model_answer_canvas.yview_scroll(step, "units")
+                
+        return "break"  # イベントの伝播を防止
